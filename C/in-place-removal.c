@@ -57,7 +57,18 @@ int isPrime(int x) {
     return TRUE;
 }
 
+// Loops through the array elements starting from position 'index' 
+// and shift them all 1 place to the left until '0' is found
+void shiftArray(int *array, int index) {
+    int i = index;
 
+    while (array[i+1] != 0) {
+        array[i] = array[i+1];
+        i++;
+    }
+
+    array[i] = 0;
+}
 
 // Generate a random array and primeify it
 int main(void) {
