@@ -93,6 +93,14 @@ int main(void) {
     printf("Original array: \n");
     printArray(arr);
 
+    // Process array
+    primeify(arr);
+    printf("\n");
+
+    // Print processed data
+    printf("Processed array: \n");
+    printArray(arr);
+
     free(arr);
     return 0;
 }
