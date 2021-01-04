@@ -1,3 +1,16 @@
+#include <stdlib.h>
+#include <time.h>
+#include <stdio.h>
+
+// boolean values
+#define TRUE 1
+#define FALSE 0
+
+// array parameters
+#define SIZE 100
+#define MINVAL 1
+#define MAXVAL 100
+
 // This function is only implemented for testing purposes.
 // It generates an array of SIZE elements, all being random integers
 int *generate() {
