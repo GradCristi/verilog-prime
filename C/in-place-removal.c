@@ -20,6 +20,17 @@ int *generate() {
     return array;
 }
 
+// Loops through an array and prints each element until '0' is found
+void printArray(int *array) {
+    int i = 0;
+
+    while (array[i] != 0) {
+        printf("%d ", array[i]);
+        i++;
+    }
+    printf("\n");
+}
+
 // Generate a random array and primeify it
 int main(void) {
     // Generate sample data
