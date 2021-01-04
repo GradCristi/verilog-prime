@@ -44,10 +44,29 @@ void printArray(int *array) {
     printf("\n");
 }
 
+// Checks whether or not 'x' is a prime number.
+int isPrime(int x) {
+    int i;
+
+    for (i = 2; i < x/2; i++) {
+        if (x % i == 0) {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+
+
 // Generate a random array and primeify it
 int main(void) {
     // Generate sample data
     int *arr = generate();
+
+    // Print sample data
+    printf("Original array: \n");
+    printArray(arr);
 
     free(arr);
     return 0;
