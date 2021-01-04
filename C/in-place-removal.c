@@ -70,6 +70,20 @@ void shiftArray(int *array, int index) {
     array[i] = 0;
 }
 
+// Loops through the array and removes non-prime elements until '0' is found
+void primeify(int *array) {
+    int i = 0;
+
+    while (array[i] != 0) {
+         if ( isPrime(array[i]) == FALSE ) {
+             shiftArray(array, i);
+         } else {
+            i++;
+         }
+    }
+}
+
+
 // Generate a random array and primeify it
 int main(void) {
     // Generate sample data
