@@ -46,6 +46,9 @@ void printArray(int *array) {
 
 // Checks whether or not 'x' is a prime number.
 int isPrime(int x) {
+    // 1 is not a prime number by convention, so if we encounter it, we don't need to check anything else
+    // Same story for negative numbers
+    if (x <= 1) return FALSE;
     int i;
 
     for (i = 2; i <= x/2; i++) {
