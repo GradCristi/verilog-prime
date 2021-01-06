@@ -27,7 +27,7 @@ int isPrime(int a) {
 int main() {
 	int i, j = 0;
 	//vector received(this is a placeholder)
-	int vector[] = { 11, 1, 13, 15, 16, 2, 5, 67 };
+	int vector[] = { 11, 5 ,1, 13, 15, 16, 2, 10, 67 };
 	//auxiliary vector, filled with 0
 	int aux[sizeof(vector) / sizeof(int)] = { 0 };
 
