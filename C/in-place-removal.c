@@ -49,6 +49,10 @@ int isPrime(int x) {
     // 1 is not a prime number by convention, so if we encounter it, we don't need to check anything else
     // Same story for negative numbers
     if (x <= 1) return FALSE;
+    // also by convention, 2 is a prime number, so we don't need to check for it either
+    if (x == 2) return TRUE;
+    
+    // for any other number, we look for divisors up untill x/2
     int i;
 
     for (i = 2; i <= x/2; i++) {
