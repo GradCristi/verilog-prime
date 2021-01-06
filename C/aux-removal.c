@@ -11,14 +11,16 @@ int isPrime(int a) {
 	if (a == 1) {
 		return 0;
 	}
-	int k;
-	//we cycle to see if our number does not divide by any numbers between 1 and a/2
-	for (k = 2; k <= a / 2; k++) {
-		if (a % k == 0) {
-			return 0;
+	else {
+		int k;
+		//we cycle to see if our number does not divide by any numbers between 1 and a/2
+		for (k = 2; k <= a / 2; k++) {
+			if (a % k == 0) {
+				return 0;
+			}
 		}
+		return 1;
 	}
-	return 1;
 }
 
 
