@@ -1,10 +1,12 @@
+#include<stdlib.h>
+
 // Checks whether or not 'x' is a prime number.
 int isPrime(int x) { // PUSH
     if (x <= 1) {               // CMP | JLE, JG
-        return FALSE;           // MOV | RET
+        return 0;           // MOV | RET
     }
     if (x == 2) {               // CMP | JE, JNE
-        return TRUE;            // MOV | RET
+        return 1;            // MOV | RET
     }
     
     int i;                      // PUSH
@@ -15,11 +17,11 @@ int isPrime(int x) { // PUSH
         i++                     // INCR
     ) {
         if (x % i == 0) {       // ?
-            return FALSE;       // MOV | RET
+            return 0;       // MOV | RET
         }
     }
 
-    return TRUE; // MOV | RET
+    return 1; // MOV | RET
 }
 
 // Loops through the array elements starting from position 'index' 
@@ -42,7 +44,7 @@ void primeify(int *array) {
     i = 0;                                  // MOV
 
     while (array[i] != 0) {                 // CMP | JNE, JE
-         if ( isPrime(array[i]) == FALSE ) {// CMP | JNE, JE | JMP
+         if ( isPrime(array[i]) == 0 ) {// CMP | JNE, JE | JMP
              shiftArray(array, i);          // JMP
          } else {                           // JNE
             i++;                            // INCR
