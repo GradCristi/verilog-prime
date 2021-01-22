@@ -131,10 +131,16 @@ assign rm   = {ri[13], ri[14], ri[15]};
 `define store_reg               'h70            // store result to register
 `define store_mem               'h74            // store result to memory
 `define inc_cp                  'h80            // increment program counter
+`define push                    'h85
 `define pop                     'h90            // extract the last element from the stack, memorize it in memory or regs
 `define inc_is                  'h100           // IS=IS++
-`define `dec+is                 `h105           //IS=IS--
-`define call                    'h110           //function to call another routine
+`define dec_is                  'h105           // IS=IS--
+`define call                    'h110           // function to call another routine
+`define ret                     'h115
+`define jmp                     'h120
+`define je                      `h121
+`define jne                     `h122
+`define jle                     `h123
 
 reg [state_width-1 : 0] state = `reset, state_next;
 reg [state_width-1 : 0] decoded_src, decoded_src_next;      // stores decoded source operand load state
@@ -142,6 +148,7 @@ reg [state_width-1 : 0] decoded_dst, decoded_dst_next;      // stores decoded de
 reg [state_width-1 : 0] decoded_exec, decoded_exec_next;    // stores decoded execute state
 reg [state_width-1 : 0] decoded_store, decoded_store_next;  // stores decoded store state
 reg decoded_d, decoded_d_next;                              // stores decoded direction bit
+
 
 // FSM - sequential part
 always @(posedge clk) begin
@@ -264,6 +271,7 @@ always @(*) begin
         `addr_sum: begin  // T1 <- BA/BB
             regs_addr = rm[1] ? `BB : `BA;
             regs_oe = 1;
+
             t1_we = 1;
 
             state_next = `addr_sum + 1;
@@ -272,6 +280,7 @@ always @(*) begin
         `addr_sum + 'd1: begin  // T2 <- XA/XB
             regs_addr = rm[2] ? `XB : `XA; // set the register address
             regs_oe = 1;
+
             t2_we = 1;
 
             state_next = `addr_sum + 2;
@@ -307,6 +316,7 @@ always @(*) begin
         `load_src_reg: begin  // T2 <- REGS[rm/rg]
             regs_addr = decoded_d ? rm : rg;
             regs_oe = 1;
+            
             t2_we = 1;
 
             state_next = decoded_dst;
@@ -315,8 +325,10 @@ always @(*) begin
         `load_src_mem: begin  // AM <- T2 OR 0 = T2
             t1_oe = 0;
             t2_oe = 1;
+
             alu_opcode = `OR;
             alu_oe = 1;
+            
             am_we = 1;
 
             state_next = `load_src_mem + 1;
@@ -338,6 +350,7 @@ always @(*) begin
         `load_dst_reg: begin  // T1 <- REGS[rm/rg]
             regs_addr = decoded_d ? rg : rm;
             regs_oe = 1;
+
             t1_we = 1;
 
             state_next = decoded_exec;
@@ -346,8 +359,10 @@ always @(*) begin
         `load_dst_mem: begin  // AM <- T1 OR 0 = T1
             t1_oe = 1;
             t2_oe = 0;
+
             alu_opcode = `OR;
             alu_oe = 1;
+
             am_we = 1;
 
             state_next = `load_dst_mem + 1;
@@ -454,7 +469,7 @@ always @(*) begin
 
             state_next = `inc_cp;
         end
-        
+
         `store_mem: begin  // M[AM] <- T1
             t1_oe = 1;
             t2_oe = 0;
@@ -480,48 +495,163 @@ always @(*) begin
             state_next = `inc_cp + 1;
         end
 
-        `inc_cp + 'd1: begin  // CP <- T1 + 1
-            // Read from T1, write into CP
+        `inc_cp + 'd1: begin  // CP <- T1 + 1 
+            // Read from T1
             t1_oe = 1;
-            cp_we = 1;
 
-            // We set the opcode to be ADC (add with carry) and set the carry to 1 to increment
+            // Set the opcode to be ADC (add with carry) and set the carry to 1 to increment
             alu_oe = 1;
             alu_carry = 1;
             alu_opcode = `ADC;
             
+            // Write into CP
+            cp_we = 1;
+
             state_next = (cop[0:6] == 7'b0000100) ? `dec_id : `fetch;
         end
 
-        //HOW IS THE STACK DEFINED
-        `pop: begin
-            //AM-<ADR(IS);
-            regs_addr= `IS;
-            regs_oe=1;
-            am_we=1;
-          
-           state_next= `pop+1;
+        `push: begin  // T1 <- T2 OR 0 = T2
+            t1_oe = 0;
+            t2_oe = 1;
+
+            alu_opcode = `OR;
+            alu_carry = 0;
+            alu_oe = 1;
+
+            t1_we = 1;
+             
+            state_next = `push + 'd1;
         end
 
-        `pop + d'1: begin //T2<-M[AM]
-            am_oe=1;
+        `push + 'd1: begin // T2 <- IS
+            regs_addr = `IS;
+            regs_oe = 1;
 
-            state_next = `pop +2;
+            t2_we = 1;
+
+            state_next = `push + 'd2;
         end
 
-        `pop + d'2: begin
-            ram_oe=1;
-            t2_we=1;
+        `push + 'd2: begin // IS <- T2 - 1
+            t1_oe = 0;
+            t2_oe = 1;
 
-            state_next= `pop+ 3; //(could be done with load dst mem, with an additional if on the state_next)
+            alu_opcode = `SBB1;
+            alu_carry = 1;
+            alu_oe = 1;
+
+            regs_addr = `IS;
+            regs_we = 1;
+
+            state_next = `push + 'd3;
+        end
+
+        `push + 'd3: begin // AM <- IS
+            regs_addr = `IS;
+            regs_oe = 1;
+
+            am_we = 1;
+
+            state_next = `store_mem;
+        end
+
+        `ret: begin // T1 <- IS
+            regs_addr = `IS;
+            regs_oe = 1;
+
+            t1_we = 1;
+
+            state_next = `ret + 'd1;
+        end
+
+        `ret + 'd1: begin  // AM <- T1
+            t1_oe = 1;
+            t2_oe = 0;
+
+            alu_opcode = `OR;
+            alu_oe = 1;
+
+            am_we = 1;
+
+            state_next = `ret + 'd2;
+        end
+
+        `ret + 'd2: begin  // RAM <- AM
+            am_oe = 1;
+
+            state_next = `ret + 'd3;
+        end
+
+        `ret + 'd3: begin  // CP <- RAM
+            ram_oe = 1;
+            cp_we = 1;
+
+            state_next = `ret + 'd4;
+        end
+
+        `ret + 'd4: begin // IS <- T1 + 1
+            t1_oe = 1;
+            t2_oe = 0;
+
+            alu_opcode = `ADC;
+            alu_carry = 1;
+            alu_oe = 1;
+
+            regs_addr = `IS;
+            regs_we = 1;
+
+            state_next = `fetch;
+        end
+
+        `jmp: begin // CP <- T1
+            t1_oe = 1;
+            t2_oe = 0;
+
+            alu_opcode = `OR;
+            alu_opcode = 1;
+
+            cp_we = 1;
+
+            state_next = `fetch;
+        end
+
+        `je: state_next = (ind[2] == 0) ? `jmp : `inc_cp;
+        `jne: state_next = (ind[2] != 0) ? `jmp : `inc_cp;
+        `jle: state_next = (ind[1] == 0) ? `jmp : `inc_cp;
+
+        //? HOW IS THE STACK DEFINED
+
+        `pop: begin // AM <- MIS
+            regs_addr = `IS;
+            regs_oe = 1;
+
+            am_we = 1;
+
+            state_next= `pop + 'd1;
+        end
+
+        `pop + 'd1: begin // RAM <- AM
+            am_oe = 1;
+
+            state_next = `pop + 'd2;
+        end
+
+        `pop + 'd2: begin // T2 <- RAM
+            ram_oe = 1;
+            t2_we = 1;
+
+            //! (could be done with load dst mem, with an additional if on the state_next)
+            state_next= `pop + 'd3;
         end
 
         //AM<-T1(readying to write in DEST, AM must receive the effective adress, which is in T1)
-        `pop + 'd2: begin     
+        `pop + 'd2: begin // 
             t1_oe=1;
             t2_oe=0;
+
             alu_opcode=`OR;
             alu_oe=1;
+            
             am_we=1;
 
             state_next= `inc_is;
@@ -608,7 +738,6 @@ always @(*) begin
 
            state_next= `fetch;
         end
-
 
         default: ;
     endcase
