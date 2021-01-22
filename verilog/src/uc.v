@@ -195,31 +195,30 @@ always @(*) begin
     ri_we = 0;
 
     case(state)
-        `reset: begin
-            state_next = `fetch;
-        end
+        `reset: state_next = `fetch;
 
-        `fetch: begin
-            cp_oe = 1;                        //read Contor Program
-            am_we = 1;                        //write into the AM part of RAM
+        `fetch: begin  // CP <- AM
+            cp_oe = 1;
+            am_we = 1;
 
             state_next = `fetch + 1;
         end
 
-        `fetch + 'd1: begin
-            am_oe = 1;                       //Output from AM into RAM
+        `fetch + 'd1: begin  // RAM <- AM
+            am_oe = 1;
 
             state_next = `fetch + 2;
         end
 
-        `fetch + 'd2: begin
-            ram_oe = 1;                         //Send forth the info stored into the RAM
-            ri_we = 1;                          //put it into RI(storage place for the instruction)
+        `fetch + 'd2: begin  // RI <- RAM
+            ram_oe = 1;
+            ri_we = 1;
 
-            state_next = `decode;               //we need to decode what is in RI now
+            // RI now has the instruction code, so we need to decode it
+            state_next = `decode;
         end
-        //COP, d, MOD, REG, RM- all of these are RI 
-        `decode: begin
+        
+        `decode: begin  // Decode RI
             // decode location of operands and operation
             if(cop[0:3] == 4'b0001) begin                                           // one operand instructions
                 decoded_d_next      = 0;                                            //for one operand instructions d will be 0
@@ -262,7 +261,7 @@ always @(*) begin
             endcase
         end
         
-        `addr_sum: begin                                        //each bit tells us which addition is BB or BA
+        `addr_sum: begin  // T1 <- BA/BB
             regs_addr = rm[1] ? `BB : `BA;
             regs_oe = 1;
             t1_we = 1;
@@ -270,79 +269,81 @@ always @(*) begin
             state_next = `addr_sum + 1;
         end
 
-        `addr_sum + 'd1: begin                                  //+XB or XA
-            regs_addr = rm[2] ? `XB : `XA;
+        `addr_sum + 'd1: begin  // T2 <- XA/XB
+            regs_addr = rm[2] ? `XB : `XA; // set the register address
             regs_oe = 1;
             t2_we = 1;
 
             state_next = `addr_sum + 2;
         end
 
-        `addr_sum + 'd2: begin                                  //we bring both into ALU
+        `addr_sum + 'd2: begin  // T1/T2 <- T1 + T2
+            // Load both [T1] and [T2] into ALU
             t1_oe = 1;
             t2_oe = 1;
+            
+            // Set the operation to be ADC (add with carry) and set carry to 0
             alu_carry = 0;
-            alu_opcode = `ADC;                                  //and perform an add with carry on them
-            alu_oe = 1;
-            if(decoded_d)
-                t2_we = 1;
-            else
-                t1_we = 1;
+            alu_opcode = `ADC;
 
-            state_next = decoded_src;                         //we carry on
-        end
-        
-        `addr_reg: begin                                    // direct adress mode, one register
-            regs_addr = rm;                                 //adress coincides with RM
-            regs_oe = 1;
-            if(decoded_d)                                   //weird how the didnt choose the other format
-                t2_we = 1;                                  //we write t2 if d=1, otherwise we write in t1
-            else
-                t1_we = 1;
+            // Extract the result of the operation either into [T1] or [T2], based on [decoded_d]
+            alu_oe = 1;
+            t2_we = decoded_d;
+            t1_we = !decoded_d;
 
             state_next = decoded_src;
         end
         
-        `load_src_reg: begin                                //loads t2 with the apropriate values in the variable determined by d, if d==1 or not
+        `addr_reg: begin  // T1/T2 <- REGS[rm]
+            regs_addr = rm;
+            regs_oe = 1;
+            
+            t2_we = decoded_d;
+            t1_we = !decoded_d;
+
+            state_next = decoded_src;
+        end
+        
+        `load_src_reg: begin  // T2 <- REGS[rm/rg]
             regs_addr = decoded_d ? rm : rg;
             regs_oe = 1;
             t2_we = 1;
 
-            state_next = decoded_dst;                       //depending on the value of decoded dst, we can move onto the next state
+            state_next = decoded_dst;
         end
         
-        `load_src_mem: begin                                //one operator, we load it into ALU, we execute OR and We write it in AM
+        `load_src_mem: begin  // AM <- T2 OR 0 = T2
             t1_oe = 0;
             t2_oe = 1;
             alu_opcode = `OR;
             alu_oe = 1;
-            am_we = 1;                                      //so we can read off the RAM
+            am_we = 1;
 
             state_next = `load_src_mem + 1;
         end
 
-        `load_src_mem + 'd1: begin                          //we read from the RAM, to see what was at AM
+        `load_src_mem + 'd1: begin  // RAM <- AM
             am_oe = 1;
 
             state_next = `load_src_mem + 2;
         end
 
-        `load_src_mem + 'd2: begin
+        `load_src_mem + 'd2: begin  // T2 <- RAM
             ram_oe = 1;
-            t2_we = 1;                                      //what we found gets deposited into T2
+            t2_we = 1;
 
             state_next = decoded_dst;
         end
 
-        `load_dst_reg: begin                                //loads t1 with the apropriate parameter, useful in 2 op situations
+        `load_dst_reg: begin  // T1 <- REGS[rm/rg]
             regs_addr = decoded_d ? rg : rm;
             regs_oe = 1;
             t1_we = 1;
 
-            state_next = decoded_exec;                      //execute for 1 op or 2 op
+            state_next = decoded_exec;
         end
         
-        `load_dst_mem: begin                                //we get T1, pass it through ALU
+        `load_dst_mem: begin  // AM <- T1 OR 0 = T1
             t1_oe = 1;
             t2_oe = 0;
             alu_opcode = `OR;
@@ -352,85 +353,149 @@ always @(*) begin
             state_next = `load_dst_mem + 1;
         end
 
-        `load_dst_mem + 'd1: begin                          //Go in AM, Output it to RAM
+        `load_dst_mem + 'd1: begin  // RAM <- AM
             am_oe = 1;
 
             state_next = `load_dst_mem + 2;
         end
 
-        `load_dst_mem + 'd2: begin                          //Output the RAM into T1 again
+        `load_dst_mem + 'd2: begin  // T1 <- RAM
             ram_oe = 1;
             t1_we = 1;
 
             state_next = decoded_exec;
         end
 
-        `exec_1op: begin                                    //operations for 1 operand
+        `exec_1op: begin  // T1 <- [operand] T1
+            // Output from T1, to be used on the RHS
             t1_oe = 1;
+
+            // Select the required [operand]
             case(cop[4:6])
-                3'b000: begin                               // INC
+                3'b000: begin               // INC
                     alu_carry = 1;
                     alu_opcode = `ADC;
                 end
-                3'b001: begin                               // DEC
+                3'b001: begin               // DEC
                     alu_carry = 1;
                     alu_opcode = `SBB1;
                 end
-                3'b010: begin                               // NEG
+                3'b010: begin               // NEG
                     alu_carry = 0;
                     alu_opcode = `SBB2;
                 end
-                3'b011: begin                               // NOT
-                    alu_opcode = `NOT;
-                end
-                3'b100: alu_opcode = `SHL;                  // SHL/SAL
-                3'b101: alu_opcode = `SHR;                  // SHR
-                3'b110: alu_opcode = `SAR;                  // SAR
+                3'b011: alu_opcode = `NOT;  // NOT
+                3'b100: alu_opcode = `SHL;  // SHL/SAL
+                3'b101: alu_opcode = `SHR;  // SHR
+                3'b110: alu_opcode = `SAR;  // SAR
             endcase
+
+            // enable writing to T1, for LHS
             alu_oe = 1;
             t1_we = 1;
+
+            // Set flags
             ind_sel = 1;
             ind_we = 1;
 
             state_next = decoded_store;
         end
         
-        `exec_2op: begin                                    //execute for 2 operands, the code specified by cop
+        `exec_2op: begin  // T1 <- T1 [operand] T2
+            // Enable outputs for RHS
             t1_oe = 1;
             t2_oe = 1;
+
             case(cop[4:6])
-                3'b000: begin                               // ADD
+                3'b000: begin               // ADD
                     alu_carry = 0;
                     alu_opcode = `ADC;
                 end
-                3'b001: begin                               // ADC
+                3'b001: begin               // ADC
                     alu_carry = ind[0];
                     alu_opcode = `ADC;
                 end
-                3'b010: begin                               // SUB/CMP
+                3'b010: begin               // SUB/CMP
                     alu_carry = 0;
                     alu_opcode = `SBB1;
                 end
-                3'b011: begin                               // SBB
+                3'b011: begin               // SBB
                     alu_carry = ind[0];
                     alu_opcode = `SBB1;
                 end
-                3'b100: alu_opcode = `AND;                  // AND/TEST
-                3'b101: alu_opcode = `OR;                   // OR
-                3'b110: alu_opcode = `XOR;                  // XOR
+                3'b100: alu_opcode = `AND;  // AND/TEST
+                3'b101: alu_opcode = `OR;   // OR
+                3'b110: alu_opcode = `XOR;  // XOR
             endcase
+
+            // Enablee writing into T1, for LHS
             alu_oe = 1;
             t1_we = 1;
-            ind_sel = 1;                                    //write the things, set the indicators
+
+            // Set flags
+            ind_sel = 1;
             ind_we = 1;
 
-            state_next = decoded_store;                     //decoded store, be it inc cp, or the actual store if we want to save the value
+            state_next = decoded_store;
+        end
+
+        `store_reg: begin  // REGS[rm/rg] <- T1
+            t1_oe = 1;
+            t2_oe = 0;
+            
+            // They must be passed through an operation to be written. T1 doesnt have MAG access.
+            // opcde is set to OR because (T1 OR 0) is always T1.
+            alu_opcode = `OR;
+            alu_oe = 1;
+
+            // Store into regs
+            regs_addr = decoded_d ? rg : rm;
+            regs_we = 1;
+
+            state_next = `inc_cp;
+        end
+        
+        `store_mem: begin  // M[AM] <- T1
+            t1_oe = 1;
+            t2_oe = 0;
+
+            // They must be passed through an operation to be written. T1 doesnt have MAG access.
+            // opcde is set to OR because (T1 OR 0) is always T1.
+            alu_opcode = `OR;
+            alu_oe = 1;
+
+            //?
+            am_oe = 1;
+            ram_we = 1;
+
+            state_next = `store_mem + 1;
+        end
+
+        `store_mem + 'd1: state_next = `inc_cp;
+
+        `inc_cp: begin  // T1 <- CP
+            cp_oe = 1;
+            t1_we = 1;
+
+            state_next = `inc_cp + 1;
+        end
+
+        `inc_cp + 'd1: begin  // CP <- T1 + 1
+            // Read from T1, write into CP
+            t1_oe = 1;
+            cp_we = 1;
+
+            // We set the opcode to be ADC (add with carry) and set the carry to 1 to increment
+            alu_oe = 1;
+            alu_carry = 1;
+            alu_opcode = `ADC;
+            
+            state_next = (cop[0:6] == 7'b0000100) ? `dec_id : `fetch;
         end
 
         //HOW IS THE STACK DEFINED
-
         `pop: begin
-                                        //AM-<ADR(IS);
+            //AM-<ADR(IS);
             regs_addr= `IS;
             regs_oe=1;
             am_we=1;
@@ -438,39 +503,39 @@ always @(*) begin
            state_next= `pop+1;
         end
 
-         `pop + d'1: begin              //T2<-M[AM]
+        `pop + d'1: begin //T2<-M[AM]
             am_oe=1;
 
             state_next = `pop +2;
-         end
+        end
 
-         `pop + d'2: begin
+        `pop + d'2: begin
             ram_oe=1;
             t2_we=1;
 
             state_next= `pop+ 3; //(could be done with load dst mem, with an additional if on the state_next)
-         end
+        end
 
-         //AM<-T1(readying to write in DEST, AM must receive the effective adress, which is in T1)
-          `pop + 'd2: begin     
-                t1_oe=1;
-                t2_oe=0;
-                alu_opcode=`OR;
-                alu_oe=1;
-                am_we=1;
+        //AM<-T1(readying to write in DEST, AM must receive the effective adress, which is in T1)
+        `pop + 'd2: begin     
+            t1_oe=1;
+            t2_oe=0;
+            alu_opcode=`OR;
+            alu_oe=1;
+            am_we=1;
 
-                state_next= `inc_is;
-          end
+            state_next= `inc_is;
+        end
 
-          `inc_is : begin               //T1<-M[IS]
+        `inc_is : begin               //T1<-M[IS]
             regs_addr= `IS;
             regs_oe=1;
             t1_we=1;
 
             state_next= `inc_is +1;
-          end
+        end
 
-          `inc_is + 'd1: begin          //M[IS]<-T1++
+        `inc_is + 'd1: begin          //M[IS]<-T1++
             t1_oe = 1;
             t2_oe=0;
             alu_oe = 1;                                 
@@ -480,9 +545,9 @@ always @(*) begin
             regs_we=1;
 
             state_next= `pop +3;
-          end
+        end
 
-         `pop + 'd3: begin              //DEST<-T2
+        `pop + 'd3: begin              //DEST<-T2
             t2_oe=1;
             t1_oe=0;
             alu_opcode= `OR;
@@ -496,7 +561,7 @@ always @(*) begin
                 ram_we=1;
             end
             stare_next=`inc_cp;
-         end
+        end
 
          `dec_is: begin
             regs_addr= `IS;
@@ -504,9 +569,9 @@ always @(*) begin
             t2_we=1;                    // we decrement it into T2, cuz T1 has the effective adress(maybe)
             
             state_next= `dec_is +1;
-         end
+        end
 
-         `dec_is + 'd1: begin
+        `dec_is + 'd1: begin
             t2_oe = 1;
             t1_oe=0;
             alu_oe = 1;                 //we put the result on the MAG
@@ -516,14 +581,15 @@ always @(*) begin
             regs_we=1;
 
             state_next= `call;
-         end
+        end
 
-         `call: begin                       //AM<-M[IS]
+        `call: begin                       //AM<-M[IS]
             regs_addr= `IS;
             regs_oe= 1;
             am_we=1;
             state_next= `call + 1;
-         end
+        end
+        
         
         `call+ 'd1: begin                  //M[AM]<-CP or otherwise M[--IS]<-++CP
             am_oe=1;
@@ -543,52 +609,6 @@ always @(*) begin
            state_next= `fetch;
         end
 
-
-        `store_reg: begin                                   //we store the value contained in t1
-            t1_oe = 1;
-            t2_oe = 0;
-            alu_opcode = `OR;                               //they must be passed through an operation to be able to be written, t1 doesnt have MAG access
-            alu_oe = 1;                                     //we do OR because OR with 0 changes nothing
-            regs_addr = decoded_d ? rg : rm;                //we write in the reg the variable we need
-            regs_we = 1;
-
-            state_next = `inc_cp;                           //get ready to increment the counter, to signal the operation is done
-        end
-        
-        `store_mem: begin                                   //store t1 to memory
-            t1_oe = 1;
-            t2_oe = 0;
-            alu_opcode = `OR;                               //needs to be passed through ALU since T1 doesnt have MAG access
-            alu_oe = 1;
-            am_oe = 1;
-            ram_we = 1;
-
-            state_next = `store_mem + 1;
-        end
-
-        `store_mem + 'd1: begin
-            state_next = `inc_cp;
-        end
-
-        `inc_cp: begin                                  // we write CP into T1, for the increment purposes
-            cp_oe = 1;
-            t1_we = 1;
-
-            state_next = `inc_cp + 1;
-        end
-
-        `inc_cp + 'd1: begin                            //we do an ALU operation by adding 1 with the carry
-            t1_oe = 1;
-            cp_we = 1;                                  //we open the cp to be rewritten
-            alu_oe = 1;                                 //we put the result on the MAG
-            alu_carry = 1;                              
-            alu_opcode = `ADC;
-            if(cop[0:6]==0000100) begin
-                state_next= `dec_is;
-            end
-            else
-            state_next = `fetch;                        //we return to fetch
-        end
 
         default: ;
     endcase
