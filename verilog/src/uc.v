@@ -131,6 +131,10 @@ assign rm   = {ri[13], ri[14], ri[15]};
 `define store_reg               'h70            // store result to register
 `define store_mem               'h74            // store result to memory
 `define inc_cp                  'h80            // increment program counter
+`define pop                     'h90            // extract the last element from the stack, memorize it in memory or regs
+`define inc_is                  'h100           // IS=IS++
+`define `dec+is                 `h105           //IS=IS--
+`define call                    'h110           //function to call another routine
 
 reg [state_width-1 : 0] state = `reset, state_next;
 reg [state_width-1 : 0] decoded_src, decoded_src_next;      // stores decoded source operand load state
@@ -196,55 +200,69 @@ always @(*) begin
         end
 
         `fetch: begin
-            cp_oe = 1;
-            am_we = 1;
+            cp_oe = 1;                        //read Contor Program
+            am_we = 1;                        //write into the AM part of RAM
 
             state_next = `fetch + 1;
         end
 
         `fetch + 'd1: begin
-            am_oe = 1;
+            am_oe = 1;                       //Output from AM into RAM
 
             state_next = `fetch + 2;
         end
 
         `fetch + 'd2: begin
-            ram_oe = 1;
-            ri_we = 1;
+            ram_oe = 1;                         //Send forth the info stored into the RAM
+            ri_we = 1;                          //put it into RI(storage place for the instruction)
 
-            state_next = `decode;
+            state_next = `decode;               //we need to decode what is in RI now
         end
-
+        //COP, d, MOD, REG, RM- all of these are RI 
         `decode: begin
             // decode location of operands and operation
-            if(cop[0:3] == 4'b0001) begin           // one operand instructions
-                decoded_d_next      = 0;
-                decoded_dst_next    = mod == 2'b11 ? `load_dst_reg : `load_dst_mem;
+            if(cop[0:3] == 4'b0001) begin                                           // one operand instructions
+                decoded_d_next      = 0;                                            //for one operand instructions d will be 0
+                decoded_dst_next    = mod == 2'b11 ? `load_dst_reg : `load_dst_mem; // is the mode direct adress? (visible confusion)
                 decoded_src_next    = decoded_dst_next;
-                decoded_exec_next   = `exec_1op;
-                decoded_store_next  = mod == 2'b11 ? `store_reg : `store_mem;
+                decoded_exec_next   = `exec_1op;                                    //execute instruction block for 1 operand
+                decoded_store_next  = mod == 2'b11 ? `store_reg : `store_mem;       //store based on adress method
             end
             else if(cop[0:2] == 3'b010) begin       // two operand instructions
-                decoded_d_next      = d;
+                decoded_d_next      = d;                                            //d counts this time
                 decoded_dst_next    = (mod == 2'b11) || (d == 1) ? `load_dst_reg : `load_dst_mem;
-                decoded_src_next    = (mod == 2'b11) || (d == 0) ? `load_src_reg : `load_src_mem;
-                decoded_exec_next   = `exec_2op;
-                decoded_store_next  = !cop[3] ? `inc_cp : ((mod == 2'b11) || (d == 1) ? `store_reg : `store_mem);
+                decoded_src_next    = (mod == 2'b11) || (d == 0) ? `load_src_reg : `load_src_mem;  //?
+                decoded_exec_next   = `exec_2op;                                    //execute instruction block for 2 operands
+                decoded_store_next  = !cop[3] ? `inc_cp : ((mod == 2'b11) || (d == 1) ? `store_reg : `store_mem); //do we save the variable
             end
+            else if(cop[0:3] == 3'b 0000) begin         //branch off in decided exec
+                if(cop[4:6] == 3'b 011) begin                //pop (structure is pop destination)
+                    decoded_d_next      = 0;                                            //for one operand instructions d will be 0
+                    decoded_dst_next    = `pop;                                         // the destination is either direct access or indirect
+                    decoded_src_next    = decoded_dst_next;                             //we skip the source bit, as this operation does not have a source
+                    //since we only need to calculate the destination, which will be retained in T1, no source is neccesary
+                end
+                else if(cop[4:6]==3'b100) begin   //instructiunea CALL
+                    decoded_d_next      = 0; // we need to save the thing into T1(effective adress?)
+                    decoded_dst_next    = `inc_cp;                                         // the destination is either direct access or indirect
+                    decoded_src_next    = decoded_dst_next;                             //we skip the source bit, as this operation does not have a source                      
+                end
+            end
+           
             
             // decode address calculation mode
-            case(mod)
-                2'b00: begin
-                    state_next = rm[0] ? `addr_reg : `addr_sum;
-                end
+            case(mod)                                           //direct or indirect method?
+                2'b00: begin                                    //indirect method
+                    state_next = rm[0] ? `addr_reg : `addr_sum; //does RM contain one reg or a sum of regs, the first bit of RM lets us know
+                end                                             // we also go to the addr calculation part of the indirect method
                 
-                2'b11: begin
-                    state_next = decoded_src_next;
+                2'b11: begin                                    //direct method
+                    state_next = decoded_src_next;              // decoded source next( load_scr_ reg or mem) or dst reg, dst mem if only 1 operator
                 end
             endcase
         end
         
-        `addr_sum: begin
+        `addr_sum: begin                                        //each bit tells us which addition is BB or BA
             regs_addr = rm[1] ? `BB : `BA;
             regs_oe = 1;
             t1_we = 1;
@@ -252,7 +270,7 @@ always @(*) begin
             state_next = `addr_sum + 1;
         end
 
-        `addr_sum + 'd1: begin
+        `addr_sum + 'd1: begin                                  //+XB or XA
             regs_addr = rm[2] ? `XB : `XA;
             regs_oe = 1;
             t2_we = 1;
@@ -260,50 +278,50 @@ always @(*) begin
             state_next = `addr_sum + 2;
         end
 
-        `addr_sum + 'd2: begin
+        `addr_sum + 'd2: begin                                  //we bring both into ALU
             t1_oe = 1;
             t2_oe = 1;
             alu_carry = 0;
-            alu_opcode = `ADC;
+            alu_opcode = `ADC;                                  //and perform an add with carry on them
             alu_oe = 1;
             if(decoded_d)
                 t2_we = 1;
             else
                 t1_we = 1;
 
-            state_next = decoded_src;
+            state_next = decoded_src;                         //we carry on
         end
         
-        `addr_reg: begin
-            regs_addr = rm;
+        `addr_reg: begin                                    // direct adress mode, one register
+            regs_addr = rm;                                 //adress coincides with RM
             regs_oe = 1;
-            if(decoded_d)
-                t2_we = 1;
+            if(decoded_d)                                   //weird how the didnt choose the other format
+                t2_we = 1;                                  //we write t2 if d=1, otherwise we write in t1
             else
                 t1_we = 1;
 
             state_next = decoded_src;
         end
         
-        `load_src_reg: begin
+        `load_src_reg: begin                                //loads t2 with the apropriate values in the variable determined by d, if d==1 or not
             regs_addr = decoded_d ? rm : rg;
             regs_oe = 1;
             t2_we = 1;
 
-            state_next = decoded_dst;
+            state_next = decoded_dst;                       //depending on the value of decoded dst, we can move onto the next state
         end
         
-        `load_src_mem: begin
+        `load_src_mem: begin                                //one operator, we load it into ALU, we execute OR and We write it in AM
             t1_oe = 0;
             t2_oe = 1;
             alu_opcode = `OR;
             alu_oe = 1;
-            am_we = 1;
+            am_we = 1;                                      //so we can read off the RAM
 
             state_next = `load_src_mem + 1;
         end
 
-        `load_src_mem + 'd1: begin
+        `load_src_mem + 'd1: begin                          //we read from the RAM, to see what was at AM
             am_oe = 1;
 
             state_next = `load_src_mem + 2;
@@ -311,20 +329,20 @@ always @(*) begin
 
         `load_src_mem + 'd2: begin
             ram_oe = 1;
-            t2_we = 1;
+            t2_we = 1;                                      //what we found gets deposited into T2
 
             state_next = decoded_dst;
         end
 
-        `load_dst_reg: begin
+        `load_dst_reg: begin                                //loads t1 with the apropriate parameter, useful in 2 op situations
             regs_addr = decoded_d ? rg : rm;
             regs_oe = 1;
             t1_we = 1;
 
-            state_next = decoded_exec;
+            state_next = decoded_exec;                      //execute for 1 op or 2 op
         end
         
-        `load_dst_mem: begin
+        `load_dst_mem: begin                                //we get T1, pass it through ALU
             t1_oe = 1;
             t2_oe = 0;
             alu_opcode = `OR;
@@ -334,20 +352,20 @@ always @(*) begin
             state_next = `load_dst_mem + 1;
         end
 
-        `load_dst_mem + 'd1: begin
+        `load_dst_mem + 'd1: begin                          //Go in AM, Output it to RAM
             am_oe = 1;
 
             state_next = `load_dst_mem + 2;
         end
 
-        `load_dst_mem + 'd2: begin
+        `load_dst_mem + 'd2: begin                          //Output the RAM into T1 again
             ram_oe = 1;
             t1_we = 1;
 
             state_next = decoded_exec;
         end
 
-        `exec_1op: begin
+        `exec_1op: begin                                    //operations for 1 operand
             t1_oe = 1;
             case(cop[4:6])
                 3'b000: begin                               // INC
@@ -377,7 +395,7 @@ always @(*) begin
             state_next = decoded_store;
         end
         
-        `exec_2op: begin
+        `exec_2op: begin                                    //execute for 2 operands, the code specified by cop
             t1_oe = 1;
             t2_oe = 1;
             case(cop[4:6])
@@ -403,27 +421,144 @@ always @(*) begin
             endcase
             alu_oe = 1;
             t1_we = 1;
-            ind_sel = 1;
+            ind_sel = 1;                                    //write the things, set the indicators
             ind_we = 1;
 
-            state_next = decoded_store;
+            state_next = decoded_store;                     //decoded store, be it inc cp, or the actual store if we want to save the value
         end
+
+        //HOW IS THE STACK DEFINED
+
+        `pop: begin
+                                        //AM-<ADR(IS);
+            regs_addr= `IS;
+            regs_oe=1;
+            am_we=1;
+          
+           state_next= `pop+1;
+        end
+
+         `pop + d'1: begin              //T2<-M[AM]
+            am_oe=1;
+
+            state_next = `pop +2;
+         end
+
+         `pop + d'2: begin
+            ram_oe=1;
+            t2_we=1;
+
+            state_next= `pop+ 3; //(could be done with load dst mem, with an additional if on the state_next)
+         end
+
+         //AM<-T1(readying to write in DEST, AM must receive the effective adress, which is in T1)
+          `pop + 'd2: begin     
+                t1_oe=1;
+                t2_oe=0;
+                alu_opcode=`OR;
+                alu_oe=1;
+                am_we=1;
+
+                state_next= `inc_is;
+          end
+
+          `inc_is : begin               //T1<-M[IS]
+            regs_addr= `IS;
+            regs_oe=1;
+            t1_we=1;
+
+            state_next= `inc_is +1;
+          end
+
+          `inc_is + 'd1: begin          //M[IS]<-T1++
+            t1_oe = 1;
+            t2_oe=0;
+            alu_oe = 1;                                 
+            alu_carry = 1;                              
+            alu_opcode = `ADC;
+            regs_addr= `IS;
+            regs_we=1;
+
+            state_next= `pop +3;
+          end
+
+         `pop + 'd3: begin              //DEST<-T2
+            t2_oe=1;
+            t1_oe=0;
+            alu_opcode= `OR;
+            alu_oe=1;
+            if(mod==11) begin           //direct adress
+                regs_addr = decoded_d ? rg : rm;                //we write in the reg the variable we need
+                regs_we = 1;
+            end
+            else begin                  //indirect adress
+                am_oe=1;
+                ram_we=1;
+            end
+            stare_next=`inc_cp;
+         end
+
+         `dec_is: begin
+            regs_addr= `IS;
+            regs_oe=1;
+            t2_we=1;                    // we decrement it into T2, cuz T1 has the effective adress(maybe)
+            
+            state_next= `dec_is +1;
+         end
+
+         `dec_is + 'd1: begin
+            t2_oe = 1;
+            t1_oe=0;
+            alu_oe = 1;                 //we put the result on the MAG
+            alu_carry = 1;                              
+            alu_opcode = `SBB1;         //maybe with DEC too
+            regs_addr= `IS;
+            regs_we=1;
+
+            state_next= `call;
+         end
+
+         `call: begin                       //AM<-M[IS]
+            regs_addr= `IS;
+            regs_oe= 1;
+            am_we=1;
+            state_next= `call + 1;
+         end
         
-        `store_reg: begin
+        `call+ 'd1: begin                  //M[AM]<-CP or otherwise M[--IS]<-++CP
+            am_oe=1;
+            cp_oe=1;
+            ram_we=1;
+
+            state_next= `call+2;
+        end
+
+        `call+ 'd2: begin                   //CP<-T1(effective adress)
+           t1_oe=1
+           t2_oe=0;
+           alu_opcode= `OR;
+           alu_oe=1;
+           cp_we=1;
+
+           state_next= `fetch;
+        end
+
+
+        `store_reg: begin                                   //we store the value contained in t1
             t1_oe = 1;
             t2_oe = 0;
-            alu_opcode = `OR;
-            alu_oe = 1;
-            regs_addr = decoded_d ? rg : rm;
+            alu_opcode = `OR;                               //they must be passed through an operation to be able to be written, t1 doesnt have MAG access
+            alu_oe = 1;                                     //we do OR because OR with 0 changes nothing
+            regs_addr = decoded_d ? rg : rm;                //we write in the reg the variable we need
             regs_we = 1;
 
-            state_next = `inc_cp;
+            state_next = `inc_cp;                           //get ready to increment the counter, to signal the operation is done
         end
         
-        `store_mem: begin
+        `store_mem: begin                                   //store t1 to memory
             t1_oe = 1;
             t2_oe = 0;
-            alu_opcode = `OR;
+            alu_opcode = `OR;                               //needs to be passed through ALU since T1 doesnt have MAG access
             alu_oe = 1;
             am_oe = 1;
             ram_we = 1;
@@ -435,21 +570,24 @@ always @(*) begin
             state_next = `inc_cp;
         end
 
-        `inc_cp: begin
+        `inc_cp: begin                                  // we write CP into T1, for the increment purposes
             cp_oe = 1;
             t1_we = 1;
 
             state_next = `inc_cp + 1;
         end
 
-        `inc_cp + 'd1: begin
+        `inc_cp + 'd1: begin                            //we do an ALU operation by adding 1 with the carry
             t1_oe = 1;
-            cp_we = 1;
-            alu_oe = 1;
-            alu_carry = 1;
+            cp_we = 1;                                  //we open the cp to be rewritten
+            alu_oe = 1;                                 //we put the result on the MAG
+            alu_carry = 1;                              
             alu_opcode = `ADC;
-
-            state_next = `fetch;
+            if(cop[0:6]==0000100) begin
+                state_next= `dec_is;
+            end
+            else
+            state_next = `fetch;                        //we return to fetch
         end
 
         default: ;
