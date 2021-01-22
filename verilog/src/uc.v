@@ -227,21 +227,21 @@ always @(*) begin
         
         `decode: begin  // Decode RI
             // decode location of operands and operation
-            if(cop[0:3] == 4'b0001) begin                                           // one operand instructions
+            if(cop[0:3] == 4'b0001) begin  // one operand instructions
                 decoded_d_next      = 0;                                            //for one operand instructions d will be 0
                 decoded_dst_next    = mod == 2'b11 ? `load_dst_reg : `load_dst_mem; // is the mode direct adress? (visible confusion)
                 decoded_src_next    = decoded_dst_next;
                 decoded_exec_next   = `exec_1op;                                    //execute instruction block for 1 operand
                 decoded_store_next  = mod == 2'b11 ? `store_reg : `store_mem;       //store based on adress method
             end
-            else if(cop[0:2] == 3'b010) begin       // two operand instructions
+            else if(cop[0:2] == 3'b010) begin  // two operand instructions
                 decoded_d_next      = d;                                            //d counts this time
                 decoded_dst_next    = (mod == 2'b11) || (d == 1) ? `load_dst_reg : `load_dst_mem;
                 decoded_src_next    = (mod == 2'b11) || (d == 0) ? `load_src_reg : `load_src_mem;  //?
                 decoded_exec_next   = `exec_2op;                                    //execute instruction block for 2 operands
                 decoded_store_next  = !cop[3] ? `inc_cp : ((mod == 2'b11) || (d == 1) ? `store_reg : `store_mem); //do we save the variable
             end
-            else if(cop[0:3] == 3'b 0000) begin         //branch off in decided exec
+            else if(cop[0:3] == 3'b 0000) begin  //branch off in decided exec
                 if(cop[4:6] == 3'b 011) begin                //pop (structure is pop destination)
                     decoded_d_next      = 0;                                            //for one operand instructions d will be 0
                     decoded_dst_next    = `pop;                                         // the destination is either direct access or indirect
@@ -257,7 +257,7 @@ always @(*) begin
            
             
             // decode address calculation mode
-            case(mod)                                           //direct or indirect method?
+            case(mod)  //direct or indirect method?
                 2'b00: begin                                    //indirect method
                     state_next = rm[0] ? `addr_reg : `addr_sum; //does RM contain one reg or a sum of regs, the first bit of RM lets us know
                 end                                             // we also go to the addr calculation part of the indirect method
@@ -657,83 +657,93 @@ always @(*) begin
             state_next= `inc_is;
         end
 
-        `inc_is : begin               //T1<-M[IS]
+        `inc_is : begin  // T1 <- M[IS]
             regs_addr= `IS;
             regs_oe=1;
+
             t1_we=1;
 
             state_next= `inc_is +1;
         end
 
-        `inc_is + 'd1: begin          //M[IS]<-T1++
+        `inc_is + 'd1: begin  // M[IS] <- T1
             t1_oe = 1;
-            t2_oe=0;
-            alu_oe = 1;                                 
-            alu_carry = 1;                              
+            t2_oe = 0;
+
             alu_opcode = `ADC;
+            alu_carry = 1;
+            alu_oe = 1;
+
             regs_addr= `IS;
             regs_we=1;
 
             state_next= `pop +3;
         end
 
-        `pop + 'd3: begin              //DEST<-T2
-            t2_oe=1;
-            t1_oe=0;
-            alu_opcode= `OR;
-            alu_oe=1;
-            if(mod==11) begin           //direct adress
-                regs_addr = decoded_d ? rg : rm;                //we write in the reg the variable we need
+        `pop + 'd3: begin  // DEST <- T2
+            t2_oe = 1;
+            t1_oe = 0;
+
+            alu_opcode = `OR;
+            alu_oe = 1;
+
+            if(mod == 11) begin  //direct adress
+                regs_addr = decoded_d ? rg : rm;  //we write in the reg the variable we need
                 regs_we = 1;
             end
-            else begin                  //indirect adress
-                am_oe=1;
-                ram_we=1;
+            else begin  //indirect adress
+                am_oe = 1;
+                ram_we = 1;
             end
-            stare_next=`inc_cp;
+            stare_next = `inc_cp;
         end
 
-         `dec_is: begin
-            regs_addr= `IS;
-            regs_oe=1;
-            t2_we=1;                    // we decrement it into T2, cuz T1 has the effective adress(maybe)
+        `dec_is: begin
+            regs_add r= `IS;
+            regs_oe = 1;
+            t2_we = 1 ;  // we decrement it into T2, cuz T1 has the effective adress(maybe)
             
-            state_next= `dec_is +1;
+            state_next= `dec_is + 1;
         end
 
         `dec_is + 'd1: begin
             t2_oe = 1;
-            t1_oe=0;
-            alu_oe = 1;                 //we put the result on the MAG
-            alu_carry = 1;                              
-            alu_opcode = `SBB1;         //maybe with DEC too
+            t1_oe = 0;
+
+            alu_opcode = `SBB1;  //? maybe with DEC too
+            alu_carry = 1;
+            alu_oe = 1;  // we put the result on the MAG
             regs_addr= `IS;
             regs_we=1;
 
             state_next= `call;
         end
 
-        `call: begin                       //AM<-M[IS]
-            regs_addr= `IS;
-            regs_oe= 1;
-            am_we=1;
+        `call: begin  // AM <- M[IS]
+            regs_addr = `IS;
+            regs_oe = 1;
+
+            am_we = 1;
+
             state_next= `call + 1;
         end
-        
-        
-        `call+ 'd1: begin                  //M[AM]<-CP or otherwise M[--IS]<-++CP
-            am_oe=1;
-            cp_oe=1;
-            ram_we=1;
 
-            state_next= `call+2;
+        `call+ 'd1: begin  //M[AM]<-CP or otherwise M[--IS]<-++CP
+            am_oe = 1;
+            cp_oe = 1;
+
+            ram_we = 1;
+
+            state_next= `call + 2;
         end
 
-        `call+ 'd2: begin                   //CP<-T1(effective adress)
-           t1_oe=1
-           t2_oe=0;
-           alu_opcode= `OR;
-           alu_oe=1;
+        `call+ 'd2: begin  //CP<-T1(effective adress)
+           t1_oe = 1;
+           t2_oe = 0;
+
+           alu_opcode = `OR;
+           alu_oe = 1;
+
            cp_we=1;
 
            state_next= `fetch;
