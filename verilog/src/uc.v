@@ -776,31 +776,18 @@ always @(*) begin
             state_next = (cop[0:6] == 7'b0000100) ? `dec_id : `fetch;
         end
 
-        `push: begin  // T1 <- T2 OR 0 = T2
-            t1_oe = 0;
-            t2_oe = 1;
-
-            alu_opcode = `OR;
-            alu_carry = 0;
-            alu_oe = 1;
-
-            t1_we = 1;
-             
-            state_next = `push + 'd1;
-        end
-
-        `push + 'd1: begin // T2 <- IS
+        `push: begin // T1 <- IS
             regs_addr = `IS;
             regs_oe = 1;
 
-            t2_we = 1;
+            t1_we = 1;
 
             state_next = `push + 'd2;
         end
 
-        `push + 'd2: begin // IS <- T2 - 1
-            t1_oe = 0;
-            t2_oe = 1;
+        `push + 'd1: begin // IS <- T1 - 1
+            t1_oe = 1;
+            t2_oe = 0;
 
             alu_opcode = `SBB1;
             alu_carry = 1;
@@ -812,6 +799,19 @@ always @(*) begin
             state_next = `push + 'd3;
         end
 
+        `push + 'd2: begin  // T1 <- T2 OR 0 = T2
+            t1_oe = 0;
+            t2_oe = 1;
+
+            alu_opcode = `OR;
+            alu_carry = 0;
+            alu_oe = 1;
+
+            t1_we = 1;
+             
+            state_next = `push + 'd1;
+        end
+ 
         `push + 'd3: begin // AM <- IS
             regs_addr = `IS;
             regs_oe = 1;
