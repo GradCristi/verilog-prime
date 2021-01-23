@@ -1,0 +1,14 @@
+Arhitectura Calculatoarelor
+Tester for Homework 3: Calculatorul didactic
+
+Setup:
+-modify the path in line 5, "call C:\Xilinx\14.7\ISE_DS\settings32.bat", from start_test.bat to correspond with your 
+Xilinx installation (use "settings64.bat" if you are running the 64bit version); if you followed the Xilinx install 
+tutorial, the default path should work.
+-you can change the parameters at the start of the testing module in "tester/tester.v" to see more/less debug output.
+
+Running:
+-copy your Verilog implementation
+-run (double-click) start_test.bat; results will be in "results.txt" and execution log will be in "results.log"
+-you can enable the simulator GUI by changing "nogui" to "gui" in line 8 of start_test.bat
+-you can run selected tests by removing unwanted ones from the "tests" folder

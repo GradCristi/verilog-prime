@@ -1,0 +1,65 @@
+`timescale 1ns / 1ps
+
+////////////////////////////////////////////////////////////////////////////////
+// Company:       UPB
+// Engineer:      Dan Dragomir
+//
+// Create Date:   12:34:41 12/04/2016
+// Design Name:   tester tema3
+// Module Name:   synth_ram
+// Project Name:  tema3
+// Target Device: ISim
+// Tool versions: 14.6
+// Description:   tester for homework 3: calculatorul didactic
+//
+//
+// Dependencies:
+//
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+//
+////////////////////////////////////////////////////////////////////////////////
+
+module ram(
+	clka,
+	dina,
+	addra,
+	wea,
+	ssra,
+	douta,
+	clkb,
+	dinb,
+	addrb,
+	web,
+	doutb);
+
+input               clka;
+input [15:0]        dina;
+input [ 9:0]        addra;
+input               wea;
+input               ssra;
+output reg[15:0]    douta;
+input               clkb;
+input [15:0]        dinb;
+input [ 9:0]        addrb;
+input               web;
+output reg[15:0]    doutb;
+
+reg [15:0] data[1:0];            // only two cells so synthesis is fast
+
+always @(posedge clka, posedge clkb) begin
+    if(clka) begin
+        if(wea)
+            data[addra] <= dina;
+        douta <= data[addra];
+    end
+    
+    if(clkb) begin
+        if(web)
+            data[addrb] <= dinb;
+        doutb <= data[addrb];
+    end
+end
+
+endmodule

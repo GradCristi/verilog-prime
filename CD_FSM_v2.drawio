@@ -1,6 +1,6 @@
-<mxfile host="65bd71144e" modified="2021-01-23T12:06:39.747Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.52.1 Chrome/83.0.4103.122 Electron/9.3.5 Safari/537.36" etag="n4_lw8VJNmqOfHLcIzls" version="13.10.0" type="embed">
+<mxfile host="65bd71144e" modified="2021-01-23T14:33:25.287Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.52.1 Chrome/83.0.4103.122 Electron/9.3.5 Safari/537.36" etag="zQYyBJqnGHgAA56oTPxZ" version="13.10.0" type="embed">
     <diagram id="VAak4zVuxn0rO6DeIEPW" name="Page-1">
-        <mxGraphModel dx="723" dy="764" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2336" pageHeight="1654" background="none" math="0" shadow="0">
+        <mxGraphModel dx="657" dy="917" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2336" pageHeight="1654" background="none" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -522,9 +522,9 @@
                         <mxGeometry x="1440" y="1160" width="160" height="80" as="geometry"/>
                     </mxCell>
                 </object>
-                <object label="&lt;font style=&quot;font-size: 12px&quot;&gt;POP&lt;br&gt;&lt;br&gt;T2 &amp;lt;- M[IS]&lt;br&gt;IS &amp;lt;- IS + 1&lt;br&gt;DEST &amp;lt;- T2&lt;br&gt;&lt;/font&gt;" comentariu="1. Extragem valoarea din IS&#10;2. IS++ ca sa &quot;dezalocam&quot; bucata din stiva&#10;3. Returnam in DST valoarea din T2&#10;" id="Hm8rbI-ClMYhHfi-btwp-65">
+                <object label="&lt;font style=&quot;font-size: 12px&quot;&gt;POP&lt;br&gt;&lt;br&gt;T2 &amp;lt;- M[IS]&lt;br&gt;AM &amp;lt;- T1&lt;br&gt;IS &amp;lt;- IS + 1&lt;br&gt;DEST &amp;lt;- T2&lt;br&gt;&lt;/font&gt;" comentariu="1. Extragem valoarea din IS&#10;2. IS++ ca sa &quot;dezalocam&quot; bucata din stiva&#10;3. Returnam in DST valoarea din T2&#10;" id="Hm8rbI-ClMYhHfi-btwp-65">
                     <mxCell style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-                        <mxGeometry x="1000" y="1160" width="120" height="80" as="geometry"/>
+                        <mxGeometry x="1000" y="1160" width="120" height="100" as="geometry"/>
                     </mxCell>
                 </object>
                 <mxCell id="HZdBCll5ipVFU45x7O0A-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="Hm8rbI-ClMYhHfi-btwp-66" edge="1">

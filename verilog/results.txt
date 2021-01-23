@@ -1,0 +1,16 @@
+ -1.00: failed to run test add_10, check compilation and execution logs
+-1.00:     0 out of    12 instructions (  0.00% completed) test add_immediate
+ 0.00:     0 out of    77 instructions (  0.00% completed) test call_bonus
+-1.00:     0 out of     8 instructions (  0.00% completed) test inc_10
+-1.00:     0 out of    47 instructions (  0.00% completed) test jcond
+-0.50:     0 out of   327 instructions (  0.00% completed) test jcond_simple
+-1.00:     0 out of    32 instructions (  0.00% completed) test jmp_10
+-0.25:     0 out of     9 instructions (  0.00% completed) test jmp_simple_00
+-0.25:     0 out of    16 instructions (  0.00% completed) test jmp_simple_11
+ 0.00:     0 out of    69 instructions (  0.00% completed) test mod01_bonus
+-1.00:     0 out of    24 instructions (  0.00% completed) test mov_10
+-1.00:     0 out of    12 instructions (  0.00% completed) test mov_immediate
+-0.50:     0 out of    14 instructions (  0.00% completed) test mov_simple
+ 0.00:     0 out of    16 instructions (  0.00% completed) test pf_bonus
+-1.00:     0 out of    16 instructions (  0.00% completed) test push_10
+-0.50:     0 out of    15 instructions (  0.00% completed) test push_simple
