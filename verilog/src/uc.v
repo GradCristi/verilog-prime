@@ -210,20 +210,20 @@ always @(*) begin
     case(state)
         `reset: state_next = `fetch;
 
-        `fetch: begin  // CP <- AM
+        `fetch: begin // CP <- AM
             cp_oe = 1;
             am_we = 1;
 
             state_next = `fetch + 1;
         end
 
-        `fetch + 'd1: begin  // RAM <- AM
+        `fetch + 'd1: begin // RAM <- AM
             am_oe = 1;
 
             state_next = `fetch + 2;
         end
 
-        `fetch + 'd2: begin  // RI <- RAM
+        `fetch + 'd2: begin // RI <- RAM
             ram_oe = 1;
             ri_we = 1;
 
@@ -231,12 +231,12 @@ always @(*) begin
             state_next = `decode;
         end
         
-        `decode: begin  // Decode RI
+        `decode: begin // Decode RI
             // Decode operation type
             case (cop[0:3])
                 4'b0000: begin // Data/Control Transfer, //! with effective address
                     case (cop[4:6])
-                        3'b000: begin  // MOV (op neimediat)
+                        3'b000: begin // MOV (op neimediat)
                             decoded_d_next = d;
                             //i thought we could do a sort of exec2op operation here
                             //with the exception that the actual exec phase shall equal 
@@ -253,7 +253,7 @@ always @(*) begin
                             decoded_exec_next= `mov;
                         end
 
-                        3'b010: begin  // PUSH
+                        3'b010: begin // PUSH
                             decoded_d_next     = 0;
                             decoded_exec_next  = `push;
                             decoded_store_next = `store_mem;
@@ -261,7 +261,7 @@ always @(*) begin
                             decoded_dst_next   = `decoded_exec_next;
                         end
 
-                        3'b011: begin  // POP
+                        3'b011: begin // POP
                             decoded_d_next = 0;
                             decoded_dst_next = `pop;
                             
@@ -270,7 +270,7 @@ always @(*) begin
                             //since we only need to calculate the destination, which will be retained in T1, no source is neccesary
                         end
 
-                        3'b100: begin  // CALL
+                        3'b100: begin // CALL
                             // we need to save the thing into T1(effective adress?)
                             decoded_d_next = 0;
                             
@@ -281,7 +281,7 @@ always @(*) begin
                             decoded_src_next = decoded_dst_next;
                         end
 
-                        3'b101: begin  // JMP
+                        3'b101: begin // JMP
                             decoded_d_next     = 0;
                             decoded_store_next = 0; //! unused
                             decoded_exec_next  = `jmp;
@@ -293,7 +293,7 @@ always @(*) begin
                     endcase
                 end
 
-                4'b0001: begin  // 1 op instructions
+                4'b0001: begin // 1 op instructions
                     decoded_d_next      = 0;
                     decoded_dst_next    = (mod == 2'b11) ? `load_dst_reg : `load_dst_mem;
                     decoded_src_next    = decoded_dst_next;
@@ -302,7 +302,7 @@ always @(*) begin
                     
                 end
 
-                4'b0100: begin  // 2 op instruction, with no store
+                4'b0100: begin // 2 op instruction, with no store
                     decoded_d_next = d;
 
                     // if mod == 11, then we deal with regs and //!adresare directa
@@ -334,7 +334,7 @@ always @(*) begin
                     
                 end
 
-                4'b0101: begin  // 2 op instruction, with store
+                4'b0101: begin // 2 op instruction, with store
                     decoded_d_next = d;
 
                     // if mod == 11, then we deal with regs and //!adresare directa
@@ -386,7 +386,7 @@ always @(*) begin
 
             // decode address calculation mode
             case(mod)
-                2'b00: begin  //indirect method
+                2'b00: begin //indirect method
                     // RM can contain either [XA/XB/BA/BB] (if RM = 0XX)
                     // or [BA/BB + XA/XB] (if RM = 1XX)
                     // so basically, if RM[0] == 0, addr has a reg
@@ -402,7 +402,7 @@ always @(*) begin
                     endcase
                 end
                 
-                2'b11: begin  //direct method
+                2'b11: begin //direct method
                     // in this case, RM contains regs (and not a sum of regs)
                     // so there is no need to branch off
                     state_next = decoded_src_next;
@@ -410,7 +410,7 @@ always @(*) begin
             endcase
         end
         
-        `addr_sum: begin  // T1 <- BA/BB
+        `addr_sum: begin // T1 <- BA/BB
             regs_addr = rm[1] ? `BB : `BA;
             regs_oe = 1;
 
@@ -419,7 +419,7 @@ always @(*) begin
             state_next = `addr_sum + 1;
         end
 
-        `addr_sum + 'd1: begin  // T2 <- XA/XB
+        `addr_sum + 'd1: begin // T2 <- XA/XB
             regs_addr = rm[2] ? `XB : `XA; // set the register address
             regs_oe = 1;
 
@@ -428,7 +428,7 @@ always @(*) begin
             state_next = `addr_sum + 2;
         end
 
-        `addr_sum + 'd2: begin  // T1/T2 <- T1 + T2
+        `addr_sum + 'd2: begin // T1/T2 <- T1 + T2
             // Load both [T1] and [T2] into ALU
             t1_oe = 1;
             t2_oe = 1;
@@ -445,7 +445,7 @@ always @(*) begin
             state_next = decoded_src;
         end
         
-        `addr_reg: begin  // T1/T2 <- REGS[rm]
+        `addr_reg: begin // T1/T2 <- REGS[rm]
             regs_addr = rm;
             regs_oe = 1;
             
@@ -514,14 +514,14 @@ always @(*) begin
             state_next = `sumt;
         end
 
-        `depls: begin  // T1 <- CP  //? identical with inc_cp ?//
+        `depls: begin // T1 <- CP  //? identical with inc_cp ?//
             cp_oe = 1;
             t1_we = 1;
 
             state_next = `inc_cp + 'd1;
         end
 
-        `depls + 'd1: begin  // CP <- T1 + 1
+        `depls + 'd1: begin // CP <- T1 + 1
             // Read from T1
             t1_oe = 1;
 
@@ -536,7 +536,7 @@ always @(*) begin
             state_next = `depls + 'd2;
         end
 
-        `depls + 'd2: begin  // AM <- T1 OR 0 = T1  //? identical with load_dst_mem ?//
+        `depls + 'd2: begin // AM <- T1 OR 0 = T1  //? identical with load_dst_mem ?//
             t1_oe = 1;
             t2_oe = 0;
 
@@ -548,13 +548,13 @@ always @(*) begin
             state_next = `depls + 1;
         end
 
-        `depls + 'd3: begin  // RAM <- AM
+        `depls + 'd3: begin // RAM <- AM
             am_oe = 1;
 
             state_next = `depls + 2;
         end
 
-        `depls + 'd4: begin  // T1 <- RAM
+        `depls + 'd4: begin // T1 <- RAM
             ram_oe = 1;
             t1_we = 1;
 
@@ -597,7 +597,7 @@ always @(*) begin
             state_next = decoded_src;
         end
 
-        `load_src_reg: begin  // T2 <- REGS[rm/rg]
+        `load_src_reg: begin // T2 <- REGS[rm/rg]
             regs_addr = decoded_d ? rm : rg;
             regs_oe = 1;
             
@@ -606,7 +606,7 @@ always @(*) begin
             state_next = decoded_dst;
         end
         
-        `load_src_mem: begin  // AM <- T2 OR 0 = T2
+        `load_src_mem: begin // AM <- T2 OR 0 = T2
             t1_oe = 0;
             t2_oe = 1;
 
@@ -618,20 +618,20 @@ always @(*) begin
             state_next = `load_src_mem + 1;
         end
 
-        `load_src_mem + 'd1: begin  // RAM <- AM
+        `load_src_mem + 'd1: begin // RAM <- AM
             am_oe = 1;
 
             state_next = `load_src_mem + 2;
         end
 
-        `load_src_mem + 'd2: begin  // T2 <- RAM
+        `load_src_mem + 'd2: begin // T2 <- RAM
             ram_oe = 1;
             t2_we = 1;
 
             state_next = decoded_dst;
         end
 
-        `load_dst_reg: begin  // T1 <- REGS[rm/rg]
+        `load_dst_reg: begin // T1 <- REGS[rm/rg]
             regs_addr = decoded_d ? rg : rm;
             regs_oe = 1;
 
@@ -640,7 +640,7 @@ always @(*) begin
             state_next = decoded_exec;
         end
         
-        `load_dst_mem: begin  // AM <- T1 OR 0 = T1
+        `load_dst_mem: begin // AM <- T1 OR 0 = T1
             t1_oe = 1;
             t2_oe = 0;
 
@@ -652,20 +652,20 @@ always @(*) begin
             state_next = `load_dst_mem + 1;
         end
 
-        `load_dst_mem + 'd1: begin  // RAM <- AM
+        `load_dst_mem + 'd1: begin // RAM <- AM
             am_oe = 1;
 
             state_next = `load_dst_mem + 2;
         end
 
-        `load_dst_mem + 'd2: begin  // T1 <- RAM
+        `load_dst_mem + 'd2: begin // T1 <- RAM
             ram_oe = 1;
             t1_we = 1;
 
             state_next = decoded_exec;
         end
 
-        `exec_1op: begin  // T1 <- [operand] T1
+        `exec_1op: begin // T1 <- [operand] T1
             // Output from T1, to be used on the RHS
             t1_oe = 1;
 
@@ -700,7 +700,7 @@ always @(*) begin
             state_next = decoded_store;
         end
         
-        `exec_2op: begin  // T1 <- T1 [operand] T2
+        `exec_2op: begin // T1 <- T1 [operand] T2
             // Enable outputs for RHS
             t1_oe = 1;
             t2_oe = 1;
@@ -738,7 +738,7 @@ always @(*) begin
             state_next = decoded_store;
         end
 
-        `store_reg: begin  // REGS[rm/rg] <- T1
+        `store_reg: begin // REGS[rm/rg] <- T1
             t1_oe = 1;
             t2_oe = 0;
             
@@ -754,7 +754,7 @@ always @(*) begin
             state_next = `inc_cp;
         end
 
-        `store_mem: begin  // M[AM] <- T1
+        `store_mem: begin // M[AM] <- T1
             t1_oe = 1;
             t2_oe = 0;
 
@@ -772,14 +772,14 @@ always @(*) begin
 
         `store_mem + 'd1: state_next = `inc_cp;
 
-        `inc_cp: begin  // T1 <- CP
+        `inc_cp: begin // T1 <- CP
             cp_oe = 1;
             t1_we = 1;
 
             state_next = `inc_cp + 1;
         end
 
-        `inc_cp + 'd1: begin  // CP <- T1 + 1 
+        `inc_cp + 'd1: begin // CP <- T1 + 1 
             // Read from T1
             t1_oe = 1;
 
@@ -817,7 +817,7 @@ always @(*) begin
             state_next = `push + 'd3;
         end
 
-        `push + 'd2: begin  // T1 <- T2 OR 0 = T2
+        `push + 'd2: begin // T1 <- T2 OR 0 = T2
             t1_oe = 0;
             t2_oe = 1;
 
@@ -848,7 +848,7 @@ always @(*) begin
             state_next = `ret + 'd1;
         end
 
-        `ret + 'd1: begin  // AM <- T1
+        `ret + 'd1: begin // AM <- T1
             t1_oe = 1;
             t2_oe = 0;
 
@@ -860,13 +860,13 @@ always @(*) begin
             state_next = `ret + 'd2;
         end
 
-        `ret + 'd2: begin  // RAM <- AM
+        `ret + 'd2: begin // RAM <- AM
             am_oe = 1;
 
             state_next = `ret + 'd3;
         end
 
-        `ret + 'd3: begin  // CP <- RAM
+        `ret + 'd3: begin // CP <- RAM
             ram_oe = 1;
             cp_we = 1;
 
@@ -941,7 +941,7 @@ always @(*) begin
             state_next= `inc_is;
         end
 
-        `inc_is : begin  // T1 <- M[IS]
+        `inc_is : begin // T1 <- M[IS]
             regs_addr= `IS;
             regs_oe=1;
 
@@ -950,7 +950,7 @@ always @(*) begin
             state_next= `inc_is +1;
         end
 
-        `inc_is + 'd1: begin  // M[IS] <- T1
+        `inc_is + 'd1: begin // M[IS] <- T1
             t1_oe = 1;
             t2_oe = 0;
 
@@ -964,18 +964,18 @@ always @(*) begin
             state_next= `pop +3;
         end
 
-        `pop + 'd3: begin  // DEST <- T2
+        `pop + 'd3: begin // DEST <- T2
             t2_oe = 1;
             t1_oe = 0;
 
             alu_opcode = `OR;
             alu_oe = 1;
 
-            if(mod == 11) begin  //direct adress
+            if(mod == 11) begin //direct adress
                 regs_addr = decoded_d ? rg : rm;  //we write in the reg the variable we need
                 regs_we = 1;
             end
-            else begin  //indirect adress
+            else begin //indirect adress
                 am_oe = 1;
                 ram_we = 1;
             end
@@ -1003,7 +1003,7 @@ always @(*) begin
             state_next= `call;
         end
 
-        `call: begin  // AM <- M[IS]
+        `call: begin // AM <- M[IS]
             regs_addr = `IS;
             regs_oe = 1;
 
@@ -1012,7 +1012,7 @@ always @(*) begin
             state_next= `call + 1;
         end
 
-        `call+ 'd1: begin  //M[AM]<-CP or otherwise M[--IS]<-++CP
+        `call+ 'd1: begin //M[AM]<-CP or otherwise M[--IS]<-++CP
             am_oe = 1;
             cp_oe = 1;
 
@@ -1021,7 +1021,7 @@ always @(*) begin
             state_next= `call + 2;
         end
 
-        `call+ 'd2: begin  //CP<-T1(effective adress)
+        `call+ 'd2: begin //CP<-T1(effective adress)
            t1_oe = 1;
            t2_oe = 0;
 
