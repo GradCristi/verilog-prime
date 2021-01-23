@@ -594,7 +594,7 @@ always @(*) begin
             alu_oe = 1;
 
             regs_addr = (rm[2] == 0) ? `XA : `XB;
-            regs_We = 1;
+            regs_we = 1;
 
             state_next = decoded_src;
         end
