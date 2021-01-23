@@ -276,7 +276,7 @@ always @(*) begin
                             decoded_d_next = 0;
                             
                             // the destination is either direct access or indirect
-                            decpded_exec_next=`inc_cp;
+                            decoded_exec_next=`inc_cp;
                             decoded_dst_next = decoded_exec_next;
                             
                             //we skip the source bit, as this operation does not have a source                      
