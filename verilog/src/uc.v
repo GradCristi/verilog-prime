@@ -146,6 +146,8 @@ assign rm   = {ri[13], ri[14], ri[15]};
 `define depls                   `h131           // mod 11, rm=11X
 `define sumt                    `h136           // T1 <- T1 + T2 in the scope of mod 11
 `define inc_xx                  `h137           // X?++, in the scope of incr
+`define mov                     'h140           //moves one operator into another spot
+`define movimd                  'h150           //mov but with an immediate operator
 
 reg [state_width-1 : 0] state = `reset, state_next;
 reg [state_width-1 : 0] decoded_src, decoded_src_next;      // stores decoded source operand load state
@@ -235,7 +237,20 @@ always @(*) begin
                 4'b0000: begin // Data/Control Transfer, //! with effective address
                     case (cop[4:6])
                         3'b000: begin  // MOV (op neimediat)
-                            // TODO
+                            decoded_d_next = d;
+                            //i thought we could do a sort of exec2op operation here
+                            //with the exception that the actual exec phase shall equal 
+                            //the two T1 and T2.
+                            if ( mod == 2'b11 || d == 1 ) begin     
+                                decoded_dst_next = `load_dst_reg;
+                                decoded_src = `load_src_mem;
+                                decoded_store_next = `store_reg;
+                            end else begin
+                                decoded_dst_next = `load_dst_mem;
+                                decoded_src = `load_src_reg;
+                                decoded_store_next = `store_mem;
+                            end
+                            decoded_exec_next= `mov;
                         end
 
                         3'b010: begin  // PUSH
@@ -309,7 +324,10 @@ always @(*) begin
                 4'b0010: begin
                     case (cop[4:6])
                         3'b100: begin // MOV (op imediat)
-                            // TODO
+                            decoded_d_next= 0;// we dont need this i think
+                            decoded_src_next=decoded_dst_next;
+                            decoded_dst_next= `inc_cp;
+                            decoded_store_next  = mod == 2'b11 ? `store_reg : `store_mem;
                         end
                         default: ;
                     endcase
@@ -1013,6 +1031,57 @@ always @(*) begin
            cp_we=1;
 
            state_next= `fetch;
+        end
+
+         `mov: begin         //t1<-t2
+            t1_oe=0;
+            t2_oe=1;
+            alu_opcode= `OR;
+            alu_oe=1;
+            t1_we=1;
+
+            state_next= `decoded_store;
+
+        end
+
+        `movimd: begin      //AM<-CP
+            cp_oe=1;
+            am_we=1;
+
+            state_next= `movimd +1;
+        end
+
+        `movimd+ 'd1: begin //read AM
+            am_oe=1;
+            
+            state_next= `movimd+2;
+        end
+
+        `movimd+ 'd2: begin //T2<-M[AM]
+            ram_oe=1;
+            t2_we=1;
+            
+            state_next= `movimd+3;
+        end
+
+        `movimd+ 'd3: begin // AM<-T1(where our adress is)
+            t1_oe = 1;
+            t2_oe = 0;
+            alu_opcode = `OR;
+            alu_oe = 1;
+            am_we = 1;
+
+            state_next= `movimd+4;
+        end
+
+        `movimd+ 'd4: begin
+            t1_oe = 0;
+            t2_oe = 1;
+            alu_opcode = `OR;
+            alu_oe = 1;
+            t1_we=1;
+            
+            state_next=`decoded_store;
         end
 
         default: ;
