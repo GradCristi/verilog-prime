@@ -911,7 +911,7 @@ always @(*) begin
 
             am_we = 1;
 
-            state_next= `pop + 'd1;
+            state_next = `pop + 'd1;
         end
 
         `pop + 'd1: begin // RAM <- AM
@@ -925,20 +925,20 @@ always @(*) begin
             t2_we = 1;
 
             //! (could be done with load dst mem, with an additional if on the state_next)
-            state_next= `pop + 'd3;
+            state_next = `pop + 'd3;
         end
 
-        //AM<-T1(readying to write in DEST, AM must receive the effective adress, which is in T1)
-        `pop + 'd2: begin // 
-            t1_oe=1;
-            t2_oe=0;
+        // (readying to write in DEST, AM must receive the effective adress, which is in T1)
+        `pop + 'd2: begin // AM <- T1
+            t1_oe = 1;
+            t2_oe = 0;
 
-            alu_opcode=`OR;
-            alu_oe=1;
+            alu_opcode = `OR;
+            alu_oe = 1;
             
-            am_we=1;
+            am_we = 1;
 
-            state_next= `inc_is;
+            state_next = `inc_is;
         end
 
         `inc_is : begin // T1 <- M[IS]
@@ -959,9 +959,9 @@ always @(*) begin
             alu_oe = 1;
 
             regs_addr= `IS;
-            regs_we=1;
+            regs_we = 1;
 
-            state_next= `pop +3;
+            state_next = `pop + 3;
         end
 
         `pop + 'd3: begin // DEST <- T2
@@ -983,11 +983,12 @@ always @(*) begin
         end
 
         `dec_is: begin
-            regs_add r= `IS;
+            regs_add r = `IS;
             regs_oe = 1;
-            t2_we = 1 ;  // we decrement it into T2, cuz T1 has the effective adress(maybe)
+
+            t2_we = 1 ; // we decrement it into T2, cuz T1 has the effective adress(maybe)
             
-            state_next= `dec_is + 1;
+            state_next = `dec_is + 1;
         end
 
         `dec_is + 'd1: begin
@@ -996,11 +997,12 @@ always @(*) begin
 
             alu_opcode = `SBB1;  //? maybe with DEC too
             alu_carry = 1;
-            alu_oe = 1;  // we put the result on the MAG
-            regs_addr= `IS;
-            regs_we=1;
+            alu_oe = 1;
 
-            state_next= `call;
+            regs_addr = `IS;
+            regs_we = 1;
+
+            state_next = `call;
         end
 
         `call: begin // AM <- M[IS]
@@ -1009,79 +1011,82 @@ always @(*) begin
 
             am_we = 1;
 
-            state_next= `call + 1;
+            state_next = `call + 1;
         end
 
-        `call+ 'd1: begin //M[AM]<-CP or otherwise M[--IS]<-++CP
+        `call + 'd1: begin //M[AM]<-CP or otherwise M[--IS]<-++CP
             am_oe = 1;
             cp_oe = 1;
 
             ram_we = 1;
 
-            state_next= `call + 2;
+            state_next = `call + 2;
         end
 
-        `call+ 'd2: begin //CP<-T1(effective adress)
+        `call + 'd2: begin // CP <- T1 (effective adress)
            t1_oe = 1;
            t2_oe = 0;
 
            alu_opcode = `OR;
            alu_oe = 1;
 
-           cp_we=1;
+           cp_we = 1;
 
            state_next= `fetch;
         end
 
-         `mov: begin         //t1<-t2
-            t1_oe=0;
-            t2_oe=1;
-            alu_opcode= `OR;
-            alu_oe=1;
-            t1_we=1;
+        `mov: begin // T1 <- T2
+            t1_oe = 0;
+            t2_oe = 1;
 
-            state_next= `decoded_store;
+            alu_opcode = `OR;
+            alu_oe = 1;
 
+            t1_we = 1;
+
+            state_next = `decoded_store;
         end
 
-        `movimd: begin      //AM<-CP
-            cp_oe=1;
-            am_we=1;
+        `movimd: begin // AM <- CP
+            cp_oe = 1;
+            am_we = 1;
 
-            state_next= `movimd +1;
+            state_next = `movimd + 1;
         end
 
-        `movimd+ 'd1: begin //read AM
-            am_oe=1;
+        `movimd + 'd1: begin // read AM
+            am_oe = 1;
             
-            state_next= `movimd+2;
+            state_next = `movimd + 2;
         end
 
-        `movimd+ 'd2: begin //T2<-M[AM]
-            ram_oe=1;
-            t2_we=1;
-            
-            state_next= `movimd+3;
+        `movimd + 'd2: begin // T2 <- M[AM]
+            ram_oe = 1;
+            t2_we = 1;
+
+            state_next= `movimd + 3;
         end
 
-        `movimd+ 'd3: begin // AM<-T1(where our adress is)
+        `movimd + 'd3: begin // AM <- T1 (where our adress is)
             t1_oe = 1;
             t2_oe = 0;
             alu_opcode = `OR;
             alu_oe = 1;
             am_we = 1;
 
-            state_next= `movimd+4;
+            state_next= `movimd + 4;
         end
 
-        `movimd+ 'd4: begin
+        `movimd + 'd4: begin // T1 <- T2
             t1_oe = 0;
             t2_oe = 1;
+
             alu_opcode = `OR;
             alu_oe = 1;
-            t1_we=1;
+
+            t1_we = 1;
             
-            state_next=`decoded_store;
+            state_next = `decoded_store;
         end
 
         default: ;
