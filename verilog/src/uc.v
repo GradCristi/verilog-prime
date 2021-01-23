@@ -257,7 +257,7 @@ always @(*) begin
                             decoded_d_next     = 0;
                             decoded_exec_next  = `push;
                             decoded_store_next = `store_mem;
-                            decoded_src_next   = `load_src_reg;
+                            decoded_src_next   = (mod == 2'b11) ? `load_src_mem : `load_src_reg;
                             decoded_dst_next   = `decoded_exec_next;
                         end
 
@@ -800,7 +800,7 @@ always @(*) begin
 
             t1_we = 1;
 
-            state_next = `push + 'd2;
+            state_next = `push + 'd1;
         end
 
         `push + 'd1: begin // IS <- T1 - 1
@@ -814,7 +814,7 @@ always @(*) begin
             regs_addr = `IS;
             regs_we = 1;
 
-            state_next = `push + 'd3;
+            state_next = `push + 'd2;
         end
 
         `push + 'd2: begin // T1 <- T2 OR 0 = T2
@@ -827,7 +827,7 @@ always @(*) begin
 
             t1_we = 1;
              
-            state_next = `push + 'd1;
+            state_next = `push + 'd3;
         end
  
         `push + 'd3: begin // AM <- IS
