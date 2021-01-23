@@ -318,8 +318,8 @@ always @(*) begin
                         decoded_dst_next = `load_dst_mem;
                         decoded_src_next = `load_src_reg;
                     end
-                    decoded_store_next  = `inc_cp;
 
+                    decoded_store_next  = `inc_cp;
                     decoded_exec_next   = `exec_2op;
                 end
 
