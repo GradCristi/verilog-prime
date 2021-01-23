@@ -138,14 +138,14 @@ assign rm   = {ri[13], ri[14], ri[15]};
 `define call                    'h110           // function to call another routine
 `define ret                     'h115           // return from a routine
 `define jmp                     'h120           // jump to another section in memory
-`define je                      `h121           // jump if ==
-`define jne                     `h122           // jump if !=
-`define jle                     `h123           // jump if <=
-`define incr                    `h125           // mod 11, rm=0XX
-`define decr                    `h127           // mod 11, rm=10X
-`define depls                   `h131           // mod 11, rm=11X
-`define sumt                    `h136           // T1 <- T1 + T2 in the scope of mod 11
-`define inc_xx                  `h137           // X?++, in the scope of incr
+`define je                      'h121           // jump if ==
+`define jne                     'h122           // jump if !=
+`define jle                     'h123           // jump if <=
+`define incr                    'h125           // mod 11, rm=0XX
+`define decr                    'h127           // mod 11, rm=10X
+`define depls                   'h131           // mod 11, rm=11X
+`define sumt                    'h136           // T1 <- T1 + T2 in the scope of mod 11
+`define inc_xx                  'h137           // X?++, in the scope of incr
 `define mov                     'h140           //moves one operator into another spot
 `define movimd                  'h150           //mov but with an immediate operator
 
