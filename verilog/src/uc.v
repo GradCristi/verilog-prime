@@ -131,16 +131,21 @@ assign rm   = {ri[13], ri[14], ri[15]};
 `define store_reg               'h70            // store result to register
 `define store_mem               'h74            // store result to memory
 `define inc_cp                  'h80            // increment program counter
-`define push                    'h85
-`define pop                     'h90            // extract the last element from the stack, memorize it in memory or regs
+`define push                    'h85            // push element to the stack
+`define pop                     'h90            // extract the last element from the stack, store it in memory or regs
 `define inc_is                  'h100           // IS=IS++
 `define dec_is                  'h105           // IS=IS--
 `define call                    'h110           // function to call another routine
-`define ret                     'h115
-`define jmp                     'h120
-`define je                      `h121
-`define jne                     `h122
-`define jle                     `h123
+`define ret                     'h115           // return from a routine
+`define jmp                     'h120           // jump to another section in memory
+`define je                      `h121           // jump if ==
+`define jne                     `h122           // jump if !=
+`define jle                     `h123           // jump if <=
+`define incr                    `h125           // mod 11, rm=0XX
+`define decr                    `h127           // mod 11, rm=10X
+`define depls                   `h131           // mod 11, rm=11X
+`define sumt                    `h136           // T1 <- T1 + T2 in the scope of mod 11
+`define inc_xx                  `h137           // X?++, in the scope of incr
 
 reg [state_width-1 : 0] state = `reset, state_next;
 reg [state_width-1 : 0] decoded_src, decoded_src_next;      // stores decoded source operand load state
@@ -148,7 +153,6 @@ reg [state_width-1 : 0] decoded_dst, decoded_dst_next;      // stores decoded de
 reg [state_width-1 : 0] decoded_exec, decoded_exec_next;    // stores decoded execute state
 reg [state_width-1 : 0] decoded_store, decoded_store_next;  // stores decoded store state
 reg decoded_d, decoded_d_next;                              // stores decoded direction bit
-
 
 // FSM - sequential part
 always @(posedge clk) begin
@@ -373,17 +377,11 @@ always @(*) begin
                 end
 
                 2'b01: begin
-                    if (rm[0] == 0) begin // RM = 0XX => [BA/BB + XA/XB+]
-                            // todo
-                    end else if (rm[1] == 0) begin // RM = 10X => [BA/BB + XA-]
-                            // todo
-                    end else begin // RM = 11X
-                        if (rm[2]) begin // [Depls]
-                            // todo
-                        end else begin // [[Depls]]
-                            // todo
-                        end
-                    end
+                    case (rm[0:1])
+                        2'b11: state_next = `depls;
+                        2'b10: state_next = `decr;
+                        default: state_next = `incr;
+                    endcase
                 end
                 
                 2'b11: begin  //direct method
@@ -438,7 +436,149 @@ always @(*) begin
 
             state_next = decoded_src;
         end
+
+        `incr: begin // T1 <- BA/BB
+            regs_addr = (rm[1]) ? `BB : `BA;
+            regs_oe = 1;
+
+            t1_we = 1;
+
+            state_next = `incr + 'd1;
+        end
+
+        `incr + 'd1: begin // T2 <- XA/XB
+            regs_addr = rm[2] ? `XB : `XA;
+            regs_oe = 1;
+
+            t2_we = 1;
+
+            state_next = `sumt;
+        end
+
+        `decr: begin // T1 <- BA/BB
+            regs_addr = (rm[2]) ? `BB : `BA;
+            regs_oe = 1;
+
+            t1_we = 1;
+
+            state_next = `decr + 'd1;
+        end
+
+        `decr + 'd1: begin // T2 <- XA
+            regs_addr = `XA;
+            regs_oe = 1;
+
+            t2_we = 1;
+
+            state_next = `decr + 'd2;
+        end
+
+        `decr + 'd2: begin // XA <- T2 - 1
+            t1_oe = 0;
+            t2_oe = 1;
+
+            alu_opcode = `SBB1;
+            alu_carry = 1;
+            alu_oe = 1;
+            
+            regs_addr = `XA;
+            regs_we = 1;
+
+            state_next = `decr + 'd3;
+        end
         
+        `decr + 'd3: begin // T2 <- XA
+            regs_addr = `XA;
+            regs_oe = 1;
+
+            t2_we = 1;
+
+            state_next = `sumt;
+        end
+
+        `depls: begin  // T1 <- CP  //? identical with inc_cp ?//
+            cp_oe = 1;
+            t1_we = 1;
+
+            state_next = `inc_cp + 'd1;
+        end
+
+        `depls + 'd1: begin  // CP <- T1 + 1
+            // Read from T1
+            t1_oe = 1;
+
+            // Set the opcode to be ADC (add with carry) and set the carry to 1 to increment
+            alu_oe = 1;
+            alu_carry = 1;
+            alu_opcode = `ADC;
+            
+            // Write into CP
+            cp_we = 1;
+
+            state_next = `depls + 'd2;
+        end
+
+        `depls + 'd2: begin  // AM <- T1 OR 0 = T1  //? identical with load_dst_mem ?//
+            t1_oe = 1;
+            t2_oe = 0;
+
+            alu_opcode = `OR;
+            alu_oe = 1;
+
+            am_we = 1;
+
+            state_next = `depls + 1;
+        end
+
+        `depls + 'd3: begin  // RAM <- AM
+            am_oe = 1;
+
+            state_next = `depls + 2;
+        end
+
+        `depls + 'd4: begin  // T1 <- RAM
+            ram_oe = 1;
+            t1_we = 1;
+
+            state_next = `sumt;
+        end
+
+        `sumt: begin // T1 <- T1 + T2
+            t1_oe = 1;
+            t2_oe = 1;
+
+            alu_opcode = `ADC;
+            alu_carry = 0;
+            alu_oe = 1;
+
+            t1_we = 1;
+
+            state_next = (rm[0] == 0) ? decoded_src : `inc_xx;
+        end
+
+        `inc_xx: begin // T1 <- XA/XB
+            regs_addr = (rm[2] == 0) ? `XA : `XB;
+            regs_oe = 1;
+
+            t1_we = 1;
+
+            state_next = `inc_xx + 'd1;
+        end
+
+        `inc_xx + 'd1: begin // XA/XB <- T1 + 1
+            t1_oe = 1;
+            t2_oe = 0;
+
+            alu_opcode = `ADC;
+            alu_carry = 1;
+            alu_oe = 1;
+
+            regs_addr = (rm[2] == 0) ? `XA : `XB;
+            regs_We = 1;
+
+            state_next = decoded_src;
+        end
+
         `load_src_reg: begin  // T2 <- REGS[rm/rg]
             regs_addr = decoded_d ? rm : rg;
             regs_oe = 1;
