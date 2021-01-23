@@ -226,6 +226,7 @@ always @(*) begin
         end
         
         `decode: begin  // Decode RI
+            // Decode operation type
             case (cop[0:3])
                 4'b0000: begin // Data/Control Transfer, //! with effective address
                     case (cop[4:6])
@@ -351,13 +352,33 @@ always @(*) begin
             endcase
 
             // decode address calculation mode
-            case(mod)  //direct or indirect method?
-                2'b00: begin                                    //indirect method
-                    state_next = rm[0] ? `addr_reg : `addr_sum; //does RM contain one reg or a sum of regs, the first bit of RM lets us know
-                end                                             // we also go to the addr calculation part of the indirect method
+            case(mod)
+                2'b00: begin  //indirect method
+                    // RM can contain either [XA/XB/BA/BB] (if RM = 0XX)
+                    // or [BA/BB + XA/XB] (if RM = 1XX)
+                    // so basically, if RM[0] == 0, addr has a reg
+                    // if RM[0] == 1, addr has a sum of regs
+                    state_next = rm[0] ? `addr_reg : `addr_sum;
+                end
+
+                2'b01: begin
+                    if (rm[0] == 0) begin // RM = 0XX => [BA/BB + XA/XB+]
+                            // todo
+                    end else if (rm[1] == 0) begin // RM = 10X => [BA/BB + XA-]
+                            // todo
+                    end else begin // RM = 11X
+                        if (rm[2]) begin // [Depls]
+                            // todo
+                        end else begin // [[Depls]]
+                            // todo
+                        end
+                    end
+                end
                 
-                2'b11: begin                                    //direct method
-                    state_next = decoded_src_next;              // decoded source next( load_scr_ reg or mem) or dst reg, dst mem if only 1 operator
+                2'b11: begin  //direct method
+                    // in this case, RM contains regs (and not a sum of regs)
+                    // so there is no need to branch off
+                    state_next = decoded_src_next;
                 end
             endcase
         end
