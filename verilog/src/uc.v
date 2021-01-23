@@ -263,8 +263,9 @@ always @(*) begin
 
                         3'b011: begin // POP
                             decoded_d_next = 0;
-                            decoded_dst_next = `pop;
-                            
+                            decoded_exec_next = `pop;
+                            decoded_dst_next = decoded_exec_next;
+
                             //we skip the source bit, as this operation does not have a source
                             decoded_src_next = decoded_dst_next;
                             //since we only need to calculate the destination, which will be retained in T1, no source is neccesary
@@ -275,7 +276,8 @@ always @(*) begin
                             decoded_d_next = 0;
                             
                             // the destination is either direct access or indirect
-                            decoded_dst_next = `inc_cp;
+                            decpded_exec_next=`inc_cp;
+                            decoded_dst_next = decoded_exec_next;
                             
                             //we skip the source bit, as this operation does not have a source                      
                             decoded_src_next = decoded_dst_next;
@@ -285,7 +287,7 @@ always @(*) begin
                             decoded_d_next     = 0;
                             decoded_store_next = 0; //! unused
                             decoded_exec_next  = `jmp;
-                            decoded_dst_next   = `load_dst_reg;
+                            decoded_dst_next   = `load_dst_reg; //? tinand cont de mod?
                             decoded_src_next   = `decoded_dst_next;
                         end
 
@@ -325,8 +327,9 @@ always @(*) begin
                     case (cop[4:6])
                         3'b100: begin // MOV (op imediat)
                             decoded_d_next= 0;// we dont need this i think
+                            decoded_exec_next=`inc_cp;
+                            decoded_dst_next= decoded_exec_next;
                             decoded_src_next=decoded_dst_next;
-                            decoded_dst_next= `inc_cp;
                             decoded_store_next  = mod == 2'b11 ? `store_reg : `store_mem;
                         end
                         default: ;
@@ -401,7 +404,6 @@ always @(*) begin
                         default: state_next = `incr;
                     endcase
                 end
-                
                 2'b11: begin //direct method
                     // in this case, RM contains regs (and not a sum of regs)
                     // so there is no need to branch off
@@ -465,7 +467,7 @@ always @(*) begin
         end
 
         `incr + 'd1: begin // T2 <- XA/XB
-            regs_addr = rm[2] ? `XB : `XA;
+            regs_addr = (rm[2]) ? `XB : `XA;
             regs_oe = 1;
 
             t2_we = 1;
@@ -535,7 +537,7 @@ always @(*) begin
 
             state_next = `depls + 'd2;
         end
-
+        //! inca o stare, muta CP in T1
         `depls + 'd2: begin // AM <- T1 OR 0 = T1  //? identical with load_dst_mem ?//
             t1_oe = 1;
             t2_oe = 0;
@@ -554,9 +556,9 @@ always @(*) begin
             state_next = `depls + 2;
         end
 
-        `depls + 'd4: begin // T1 <- RAM
+        `depls + 'd4: begin // T2 <- RAM
             ram_oe = 1;
-            t1_we = 1;
+            t2_we = 1;
 
             state_next = `sumt;
         end
@@ -789,9 +791,13 @@ always @(*) begin
             alu_opcode = `ADC;
             
             // Write into CP
+            //! can we do this in inc cp or do we have to write a sperate one for T2
             cp_we = 1;
-
-            state_next = (cop[0:6] == 7'b0000100) ? `dec_id : `fetch;
+            if(cop[0:6]== 7'b0000100)
+                state_next= `dec_is;
+            else if(cop[0:6]== 7'b0010100)
+                    state_next=`movimd;
+            else state_next= `fetch;
         end
 
         `push: begin // T1 <- IS
@@ -892,13 +898,13 @@ always @(*) begin
             t2_oe = 0;
 
             alu_opcode = `OR;
-            alu_opcode = 1;
+            alu_oe = 1;
 
             cp_we = 1;
 
             state_next = `fetch;
         end
-
+        //? daca se face operatia inainte sau o fac in cadrul Jcond
         `je: state_next = (ind[2] == 0) ? `jmp : `inc_cp;
         `jne: state_next = (ind[2] != 0) ? `jmp : `inc_cp;
         `jle: state_next = (ind[1] == 0) ? `jmp : `inc_cp;
@@ -924,12 +930,11 @@ always @(*) begin
             ram_oe = 1;
             t2_we = 1;
 
-            //! (could be done with load dst mem, with an additional if on the state_next)
-            state_next = `pop + 'd3;
+            state_next = `pop + 3;
         end
 
         // (readying to write in DEST, AM must receive the effective adress, which is in T1)
-        `pop + 'd2: begin // AM <- T1
+        `pop + 'd3: begin // AM <- T1
             t1_oe = 1;
             t2_oe = 0;
 
@@ -983,7 +988,7 @@ always @(*) begin
         end
 
         `dec_is: begin
-            regs_add r = `IS;
+            regs_addr = `IS;
             regs_oe = 1;
 
             t2_we = 1 ; // we decrement it into T2, cuz T1 has the effective adress(maybe)
@@ -1020,20 +1025,9 @@ always @(*) begin
 
             ram_we = 1;
 
-            state_next = `call + 2;
+            state_next = `jmp;
         end
 
-        `call + 'd2: begin // CP <- T1 (effective adress)
-           t1_oe = 1;
-           t2_oe = 0;
-
-           alu_opcode = `OR;
-           alu_oe = 1;
-
-           cp_we = 1;
-
-           state_next= `fetch;
-        end
 
         `mov: begin // T1 <- T2
             t1_oe = 0;
