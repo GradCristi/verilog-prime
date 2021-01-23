@@ -235,13 +235,15 @@ always @(*) begin
                         end
 
                         3'b010: begin  // PUSH
+                            decoded_d_next     = 0;
+                            decoded_exec_next  = `push;
+                            decoded_store_next = `store_mem;
+                            decoded_src_next   = `load_src_reg;
+                            decoded_dst_next   = `decoded_exec_next;
                         end
 
                         3'b011: begin  // POP
-                            //for one operand instructions d will be 0
                             decoded_d_next = 0;
-                            
-                            // the destination is either direct access or indirect
                             decoded_dst_next = `pop;
                             
                             //we skip the source bit, as this operation does not have a source
@@ -261,6 +263,11 @@ always @(*) begin
                         end
 
                         3'b101: begin  // JMP
+                            decoded_d_next     = 0;
+                            decoded_store_next = 0; //! unused
+                            decoded_exec_next  = `jmp;
+                            decoded_dst_next   = `load_dst_reg;
+                            decoded_src_next   = `decoded_dst_next;
                         end
 
                         default: ;
@@ -667,7 +674,7 @@ always @(*) begin
 
             am_we = 1;
 
-            state_next = `store_mem;
+            state_next = `decoded_store;
         end
 
         `ret: begin // T1 <- IS
