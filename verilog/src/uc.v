@@ -226,36 +226,130 @@ always @(*) begin
         end
         
         `decode: begin  // Decode RI
-            // decode location of operands and operation
-            if(cop[0:3] == 4'b0001) begin  // one operand instructions
-                decoded_d_next      = 0;                                            //for one operand instructions d will be 0
-                decoded_dst_next    = mod == 2'b11 ? `load_dst_reg : `load_dst_mem; // is the mode direct adress? (visible confusion)
-                decoded_src_next    = decoded_dst_next;
-                decoded_exec_next   = `exec_1op;                                    //execute instruction block for 1 operand
-                decoded_store_next  = mod == 2'b11 ? `store_reg : `store_mem;       //store based on adress method
-            end
-            else if(cop[0:2] == 3'b010) begin  // two operand instructions
-                decoded_d_next      = d;                                            //d counts this time
-                decoded_dst_next    = (mod == 2'b11) || (d == 1) ? `load_dst_reg : `load_dst_mem;
-                decoded_src_next    = (mod == 2'b11) || (d == 0) ? `load_src_reg : `load_src_mem;  //?
-                decoded_exec_next   = `exec_2op;                                    //execute instruction block for 2 operands
-                decoded_store_next  = !cop[3] ? `inc_cp : ((mod == 2'b11) || (d == 1) ? `store_reg : `store_mem); //do we save the variable
-            end
-            else if(cop[0:3] == 3'b 0000) begin  //branch off in decided exec
-                if(cop[4:6] == 3'b 011) begin                //pop (structure is pop destination)
-                    decoded_d_next      = 0;                                            //for one operand instructions d will be 0
-                    decoded_dst_next    = `pop;                                         // the destination is either direct access or indirect
-                    decoded_src_next    = decoded_dst_next;                             //we skip the source bit, as this operation does not have a source
-                    //since we only need to calculate the destination, which will be retained in T1, no source is neccesary
+            case (cop[0:3])
+                4'b0000: begin // Data/Control Transfer, //! with effective address
+                    case (cop[4:6])
+                        3'b000: begin  // MOV (op neimediat)
+                        // TODO
+                        end
+
+                        3'b010: begin  // PUSH
+                        end
+
+                        3'b011: begin  // POP
+                            //for one operand instructions d will be 0
+                            decoded_d_next = 0;
+                            
+                            // the destination is either direct access or indirect
+                            decoded_dst_next = `pop;
+                            
+                            //we skip the source bit, as this operation does not have a source
+                            decoded_src_next = decoded_dst_next;
+                            //since we only need to calculate the destination, which will be retained in T1, no source is neccesary
+                        end
+
+                        3'b100: begin  // CALL
+                            // we need to save the thing into T1(effective adress?)
+                            decoded_d_next = 0;
+                            
+                            // the destination is either direct access or indirect
+                            decoded_dst_next = `inc_cp;
+                            
+                            //we skip the source bit, as this operation does not have a source                      
+                            decoded_src_next = decoded_dst_next;
+                        end
+
+                        3'b101: begin  // JMP
+                        end
+
+                        default: ;
+                    endcase
                 end
-                else if(cop[4:6]==3'b100) begin   //instructiunea CALL
-                    decoded_d_next      = 0; // we need to save the thing into T1(effective adress?)
-                    decoded_dst_next    = `inc_cp;                                         // the destination is either direct access or indirect
-                    decoded_src_next    = decoded_dst_next;                             //we skip the source bit, as this operation does not have a source                      
+
+                4'b0001: begin  // 1 op instructions
+                    decoded_d_next      = 0;
+                    decoded_dst_next    = (mod == 2'b11) ? `load_dst_reg : `load_dst_mem;
+                    decoded_src_next    = decoded_dst_next;
+                    decoded_store_next  = (mod == 2'b11) ? `store_reg : `store_mem;
+                    decoded_exec_next   = `exec_1op;
+                    
                 end
-            end
-           
-            
+
+                4'b0100: begin  // 2 op instruction, with no store
+                    decoded_d_next = d;
+
+                    // if mod == 11, then we deal with regs and //!adresare directa
+                    // operation structure: store <- dst [operand] src
+                    // if d == 0, op looks like R/M <- R/M [operand] REG
+                    // if d == 1, op looks like REG <- REG [operand] R/M
+                    if ( mod == 2'b11 || d == 1 ) begin
+                        decoded_dst_next = `load_dst_reg;
+                        decoded_src = `load_src_mem;
+                    end else begin
+                        decoded_dst_next = `load_dst_mem;
+                        decoded_src = `load_src_reg;
+                    end
+                    decoded_store_next  = `inc_cp;
+
+                    decoded_exec_next   = `exec_2op;
+                end
+
+                4'b0010: begin
+                    case (cop[4:6])
+                        3'b100: begin // MOV (op imediat)
+                        // TODO
+                        end
+                        default: ;
+                    endcase
+                    
+                end
+
+                4'b0101: begin  // 2 op instruction, with store
+                    decoded_d_next = d;
+
+                    // if mod == 11, then we deal with regs and //!adresare directa
+                    // operation structure: store <- dst [operand] src
+                    // if d == 0, op looks like R/M <- R/M [operand] REG
+                    // if d == 1, op looks like REG <- REG [operand] R/M
+                    if ( mod == 2'b11 || d == 1 ) begin
+                        decoded_dst_next = `load_dst_reg;
+                        decoded_src = `load_src_mem;
+                        decoded_store_next = `store_reg;
+                    end else begin
+                        decoded_dst_next = `load_dst_mem;
+                        decoded_src = `load_src_reg;
+                        decoded_store_next = `store_mem;
+                    end
+
+                    decoded_exec_next   = `exec_2op;
+                end
+
+                4'b1000: begin // Data/Control Transfer, //! without effective address
+                    case (cop[4:6])
+                        3'b100: begin // RET
+                            // TODO
+                        end
+                        default: ;
+                    endcase
+                end
+
+                4'b1001: begin // JCOND
+                    case ({cop[4:6],d}) //? this ok ?//
+                        4'b0010: begin // JLE
+                            // TODO
+                        end
+                        4'b0100: begin // JE
+                            // TODO
+                        end
+                        4'b1100: begin // JNE
+                            // TODO
+                        end
+                        default: ;
+                    endcase
+                    
+                end
+            endcase
+
             // decode address calculation mode
             case(mod)  //direct or indirect method?
                 2'b00: begin                                    //indirect method
@@ -621,7 +715,7 @@ always @(*) begin
 
         //? HOW IS THE STACK DEFINED
 
-        `pop: begin // AM <- MIS
+        `pop: begin // AM <- IS
             regs_addr = `IS;
             regs_oe = 1;
 
