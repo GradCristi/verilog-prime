@@ -231,7 +231,7 @@ always @(*) begin
                 4'b0000: begin // Data/Control Transfer, //! with effective address
                     case (cop[4:6])
                         3'b000: begin  // MOV (op neimediat)
-                        // TODO
+                            // TODO
                         end
 
                         3'b010: begin  // PUSH
@@ -305,7 +305,7 @@ always @(*) begin
                 4'b0010: begin
                     case (cop[4:6])
                         3'b100: begin // MOV (op imediat)
-                        // TODO
+                            // TODO
                         end
                         default: ;
                     endcase
@@ -335,26 +335,30 @@ always @(*) begin
                 4'b1000: begin // Data/Control Transfer, //! without effective address
                     case (cop[4:6])
                         3'b100: begin // RET
-                            // TODO
+                            //? do we really skip all steps here ?//
+                            decoded_d = 0;
+                            decoded_exec_next = `ret;
+                            decoded_dst_next = decoded_exec_next;
+                            decoded_src_next = decoded_dst_next;
+                            decoded_store_next = 0; //! unused
                         end
                         default: ;
                     endcase
                 end
 
                 4'b1001: begin // JCOND
+                    // These values are independend of the type of JCOND
+                    decoded_d_next     = d;
+                    decoded_store_next = 0; //! unused
+                    decoded_dst_next   = `load_dst_reg;
+                    decoded_src_next   = `decoded_dst_next;
+
                     case ({cop[4:6],d}) //? this ok ?//
-                        4'b0010: begin // JLE
-                            // TODO
-                        end
-                        4'b0100: begin // JE
-                            // TODO
-                        end
-                        4'b1100: begin // JNE
-                            // TODO
-                        end
+                        4'b0010: decoded_exec_next = `jle;
+                        4'b0100: decoded_exec_next = `je;
+                        4'b1100: decoded_exec_next = `jne;
                         default: ;
                     endcase
-                    
                 end
             endcase
 
