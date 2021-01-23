@@ -553,7 +553,7 @@ always @(*) begin
 
             t1_we = 1;
 
-            state_next = (rm[0] == 0) ? decoded_src : `inc_xx;
+            state_next = (rm[0] == 1) ? decoded_src : `inc_xx;
         end
 
         `inc_xx: begin // T1 <- XA/XB
