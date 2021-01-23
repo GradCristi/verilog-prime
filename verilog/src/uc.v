@@ -243,11 +243,11 @@ always @(*) begin
                             //the two T1 and T2.
                             if ( mod == 2'b11 || d == 1 ) begin     
                                 decoded_dst_next = `load_dst_reg;
-                                decoded_src = `load_src_mem;
+                                decoded_src_next = `load_src_mem;
                                 decoded_store_next = `store_reg;
                             end else begin
                                 decoded_dst_next = `load_dst_mem;
-                                decoded_src = `load_src_reg;
+                                decoded_src_next = `load_src_reg;
                                 decoded_store_next = `store_mem;
                             end
                             decoded_exec_next= `mov;
@@ -313,13 +313,13 @@ always @(*) begin
                     // if d == 1, op looks like REG <- REG [operand] R/M
                     if ( mod == 2'b11 || d == 1 ) begin
                         decoded_dst_next = `load_dst_reg;
-                        decoded_src = `load_src_mem;
+                        decoded_src_next = `load_src_mem;
                     end else begin
                         decoded_dst_next = `load_dst_mem;
-                        decoded_src = `load_src_reg;
+                        decoded_src_next = `load_src_reg;
                     end
-                    decoded_store_next  = `inc_cp;
 
+                    decoded_store_next  = `inc_cp;
                     decoded_exec_next   = `exec_2op;
                 end
 
@@ -346,11 +346,11 @@ always @(*) begin
                     // if d == 1, op looks like REG <- REG [operand] R/M
                     if ( mod == 2'b11 || d == 1 ) begin
                         decoded_dst_next = `load_dst_reg;
-                        decoded_src = `load_src_mem;
+                        decoded_src_next = `load_src_mem;
                         decoded_store_next = `store_reg;
                     end else begin
                         decoded_dst_next = `load_dst_mem;
-                        decoded_src = `load_src_reg;
+                        decoded_src_next = `load_src_reg;
                         decoded_store_next = `store_mem;
                     end
 
