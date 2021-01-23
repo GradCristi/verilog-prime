@@ -258,7 +258,7 @@ always @(*) begin
                             decoded_exec_next  = `push;
                             decoded_store_next = `store_mem;
                             decoded_src_next   = (mod == 2'b11) ? `load_src_mem : `load_src_reg;
-                            decoded_dst_next   = `decoded_exec_next;
+                            decoded_dst_next   = decoded_exec_next;
                         end
 
                         3'b011: begin // POP
@@ -288,7 +288,7 @@ always @(*) begin
                             decoded_store_next = 0; //! unused
                             decoded_exec_next  = `jmp;
                             decoded_dst_next   = `load_dst_reg; //? tinand cont de mod?
-                            decoded_src_next   = `decoded_dst_next;
+                            decoded_src_next   = decoded_dst_next;
                         end
 
                         default: ;
@@ -376,7 +376,7 @@ always @(*) begin
                     decoded_d_next     = d;
                     decoded_store_next = 0; //! unused
                     decoded_dst_next   = `load_dst_reg;
-                    decoded_src_next   = `decoded_dst_next;
+                    decoded_src_next   = decoded_dst_next;
 
                     case ({cop[4:6],d}) //? this ok ?//
                         4'b0010: decoded_exec_next = `jle;
@@ -842,7 +842,7 @@ always @(*) begin
 
             am_we = 1;
 
-            state_next = `decoded_store;
+            state_next = decoded_store;
         end
 
         `ret: begin // T1 <- IS
@@ -984,7 +984,7 @@ always @(*) begin
                 am_oe = 1;
                 ram_we = 1;
             end
-            stare_next = `inc_cp;
+            state_next = `inc_cp;
         end
 
         `dec_is: begin
@@ -1038,7 +1038,7 @@ always @(*) begin
 
             t1_we = 1;
 
-            state_next = `decoded_store;
+            state_next = decoded_store;
         end
 
         `movimd: begin // AM <- CP
@@ -1080,7 +1080,7 @@ always @(*) begin
 
             t1_we = 1;
             
-            state_next = `decoded_store;
+            state_next = decoded_store;
         end
 
         default: ;
