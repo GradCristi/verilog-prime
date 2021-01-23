@@ -935,6 +935,10 @@ always @(*) begin
 
         // (readying to write in DEST, AM must receive the effective adress, which is in T1)
         `pop + 'd3: begin // AM <- T1
+            if(mod==11) begin
+                state_next = `inc_is;
+            end
+            else begin
             t1_oe = 1;
             t2_oe = 0;
 
@@ -944,6 +948,7 @@ always @(*) begin
             am_we = 1;
 
             state_next = `inc_is;
+            end
         end
 
         `inc_is : begin // T1 <- M[IS]
@@ -966,10 +971,10 @@ always @(*) begin
             regs_addr= `IS;
             regs_we = 1;
 
-            state_next = `pop + 3;
+            state_next = `pop + 4;
         end
 
-        `pop + 'd3: begin // DEST <- T2
+        `pop + 'd4: begin // DEST <- T2
             t2_oe = 1;
             t1_oe = 0;
 
