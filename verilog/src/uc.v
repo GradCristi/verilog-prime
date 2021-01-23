@@ -243,11 +243,11 @@ always @(*) begin
                             //the two T1 and T2.
                             if ( mod == 2'b11 || d == 1 ) begin     
                                 decoded_dst_next = `load_dst_reg;
-                                decoded_src = `load_src_mem;
+                                decoded_src_next = `load_src_mem;
                                 decoded_store_next = `store_reg;
                             end else begin
                                 decoded_dst_next = `load_dst_mem;
-                                decoded_src = `load_src_reg;
+                                decoded_src_next = `load_src_reg;
                                 decoded_store_next = `store_mem;
                             end
                             decoded_exec_next= `mov;
@@ -276,7 +276,7 @@ always @(*) begin
                             decoded_d_next = 0;
                             
                             // the destination is either direct access or indirect
-                            decpded_exec_next=`inc_cp;
+                            decoded_exec_next=`inc_cp;
                             decoded_dst_next = decoded_exec_next;
                             
                             //we skip the source bit, as this operation does not have a source                      
@@ -313,10 +313,10 @@ always @(*) begin
                     // if d == 1, op looks like REG <- REG [operand] R/M
                     if ( mod == 2'b11 || d == 1 ) begin
                         decoded_dst_next = `load_dst_reg;
-                        decoded_src = `load_src_mem;
+                        decoded_src_next = `load_src_mem;
                     end else begin
                         decoded_dst_next = `load_dst_mem;
-                        decoded_src = `load_src_reg;
+                        decoded_src_next = `load_src_reg;
                     end
                     decoded_store_next  = `inc_cp;
 
@@ -346,11 +346,11 @@ always @(*) begin
                     // if d == 1, op looks like REG <- REG [operand] R/M
                     if ( mod == 2'b11 || d == 1 ) begin
                         decoded_dst_next = `load_dst_reg;
-                        decoded_src = `load_src_mem;
+                        decoded_src_next = `load_src_mem;
                         decoded_store_next = `store_reg;
                     end else begin
                         decoded_dst_next = `load_dst_mem;
-                        decoded_src = `load_src_reg;
+                        decoded_src_next = `load_src_reg;
                         decoded_store_next = `store_mem;
                     end
 
@@ -361,7 +361,7 @@ always @(*) begin
                     case (cop[4:6])
                         3'b100: begin // RET
                             //? do we really skip all steps here ?//
-                            decoded_d = 0;
+                            decoded_d_next = 0;
                             decoded_exec_next = `ret;
                             decoded_dst_next = decoded_exec_next;
                             decoded_src_next = decoded_dst_next;
@@ -1090,3 +1090,4 @@ end
 assign disp_state = state;
 
 endmodule
+
