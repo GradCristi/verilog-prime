@@ -361,7 +361,7 @@ always @(*) begin
                     case (cop[4:6])
                         3'b100: begin // RET
                             //? do we really skip all steps here ?//
-                            decoded_d = 0;
+                            decoded_d_next = 0;
                             decoded_exec_next = `ret;
                             decoded_dst_next = decoded_exec_next;
                             decoded_src_next = decoded_dst_next;
