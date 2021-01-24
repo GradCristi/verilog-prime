@@ -241,7 +241,11 @@ always @(*) begin
                             //i thought we could do a sort of exec2op operation here
                             //with the exception that the actual exec phase shall equal 
                             //the two T1 and T2.
-                            if ( mod == 2'b11 || d == 1 ) begin     
+                            if ( mod == 2'b11 ) begin
+                                decoded_dst_next = `load_dst_reg;
+                                decoded_src_next = `load_src_reg;
+                                decoded_store_next = `store_reg;
+                            end else if ( d == 1 ) begin
                                 decoded_dst_next = `load_dst_reg;
                                 decoded_src_next = `load_src_mem;
                                 decoded_store_next = `store_reg;
@@ -254,10 +258,10 @@ always @(*) begin
                         end
 
                         3'b010: begin // PUSH
-                            decoded_d_next     = 0;
+                            decoded_d_next     = 1;
                             decoded_exec_next  = `push;
                             decoded_store_next = `store_mem;
-                            decoded_src_next   = (mod == 2'b11) ? `load_src_mem : `load_src_reg;
+                            decoded_src_next   = (mod == 2'b11) ? `load_src_reg : `load_src_mem;
                             decoded_dst_next   = decoded_exec_next;
                         end
 
@@ -311,12 +315,18 @@ always @(*) begin
                     // operation structure: store <- dst [operand] src
                     // if d == 0, op looks like R/M <- R/M [operand] REG
                     // if d == 1, op looks like REG <- REG [operand] R/M
-                    if ( mod == 2'b11 || d == 1 ) begin
+                    if ( mod == 2'b11 ) begin
+                        decoded_dst_next = `load_dst_reg;
+                        decoded_src_next = `load_src_reg;
+                        decoded_store_next = `store_reg;
+                    end else if ( d == 1 ) begin
                         decoded_dst_next = `load_dst_reg;
                         decoded_src_next = `load_src_mem;
+                        decoded_store_next = `store_reg;
                     end else begin
                         decoded_dst_next = `load_dst_mem;
                         decoded_src_next = `load_src_reg;
+                        decoded_store_next = `store_mem;
                     end
 
                     decoded_store_next  = `inc_cp;
@@ -344,7 +354,11 @@ always @(*) begin
                     // operation structure: store <- dst [operand] src
                     // if d == 0, op looks like R/M <- R/M [operand] REG
                     // if d == 1, op looks like REG <- REG [operand] R/M
-                    if ( mod == 2'b11 || d == 1 ) begin
+                    if ( mod == 2'b11 ) begin
+                        decoded_dst_next = `load_dst_reg;
+                        decoded_src_next = `load_src_reg;
+                        decoded_store_next = `store_reg;
+                    end else if ( d == 1 ) begin
                         decoded_dst_next = `load_dst_reg;
                         decoded_src_next = `load_src_mem;
                         decoded_store_next = `store_reg;
@@ -404,6 +418,7 @@ always @(*) begin
                         default: state_next = `incr;
                     endcase
                 end
+
                 2'b11: begin //direct method
                     // in this case, RM contains regs (and not a sum of regs)
                     // so there is no need to branch off
@@ -534,29 +549,18 @@ always @(*) begin
             
             // Write into CP
             cp_we = 1;
+            am_we = 1;
 
             state_next = `depls + 'd2;
         end
-        //! inca o stare, muta CP in T1
-        `depls + 'd2: begin // AM <- T1 OR 0 = T1  //? identical with load_dst_mem ?//
-            t1_oe = 1;
-            t2_oe = 0;
 
-            alu_opcode = `OR;
-            alu_oe = 1;
-
-            am_we = 1;
-
-            state_next = `depls + 1;
-        end
-
-        `depls + 'd3: begin // RAM <- AM
+        `depls + 'd2: begin // RAM <- AM
             am_oe = 1;
 
-            state_next = `depls + 2;
+            state_next = `depls + 'd3;
         end
 
-        `depls + 'd4: begin // T2 <- RAM
+        `depls + 'd3: begin // T2 <- RAM
             ram_oe = 1;
             t2_we = 1;
 
@@ -904,7 +908,7 @@ always @(*) begin
 
             state_next = `fetch;
         end
-        //? daca se face operatia inainte sau o fac in cadrul Jcond
+        
         `je: state_next = (ind[2] == 0) ? `jmp : `inc_cp;
         `jne: state_next = (ind[2] != 0) ? `jmp : `inc_cp;
         `jle: state_next = (ind[1] == 0) ? `jmp : `inc_cp;
@@ -981,7 +985,7 @@ always @(*) begin
             alu_opcode = `OR;
             alu_oe = 1;
 
-            if(mod == 11) begin //direct adress
+            if(mod == 2'b11) begin //direct adress
                 regs_addr = decoded_d ? rg : rm;  //we write in the reg the variable we need
                 regs_we = 1;
             end
@@ -989,8 +993,11 @@ always @(*) begin
                 am_oe = 1;
                 ram_we = 1;
             end
-            state_next = `inc_cp;
+
+            state_next = `pop + 'd5;
         end
+
+        `pop + 'd5: state_next = `inc_cp;
 
         `dec_is: begin
             regs_addr = `IS;
@@ -1032,7 +1039,6 @@ always @(*) begin
 
             state_next = `jmp;
         end
-
 
         `mov: begin // T1 <- T2
             t1_oe = 0;
@@ -1095,4 +1101,3 @@ end
 assign disp_state = state;
 
 endmodule
-
